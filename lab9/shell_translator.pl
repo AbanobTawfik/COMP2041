@@ -20,22 +20,27 @@ sub convert{
 	my %hash;
 
 	foreach my $line(@array_of_lines){
-		if("$line" eq "do\n" or "$line" eq "do" or $line =~ /\s*do\n/){
+		if("$line" eq "do\n" or "$line" eq "do" or $line =~ /\s*do\n*$/){
 			next;
 		}
-		if("$line" eq "done\n" or "$line" eq "done" or $line =~ /\s*done\n/){
-			$line =~ s/(\s+)done\n/$1/;
+		if("$line" eq "done\n" or "$line" eq "done" or $line =~ /\s*done\n*$/){
+			$line =~ s/(\s*)done\n*/$1/;
 			print $rf "$line}\n";
 			next;
 		}
-		if("$line" eq "fi\n" or "$line" eq "fi" or $line =~ /\s*fi\n/){
-			$line =~ s/(\s+)fi\n/$1/;
+		if("$line" eq "fi\n" or "$line" eq "fi" or $line =~ /\s*fi\n*$/){
+			$line =~ s/(\s*)fi\n*/$1/;
 			print $rf "$line}\n";
 			next;
 		}
-		if("$line" eq "then\n" or "$line" eq "then" or $line =~ /\s*then\n/){
-			$line =~ s/(\s+)then\n/$1/;
-			print $rf "$line}\n";
+		if("$line" eq "then\n" or "$line" eq "then" or $line =~ /\s*then\n*$/){
+			next;
+		}
+		if("$line" eq "else\n" or "$line" eq "else" or $line =~ /\s*else\n*$/){
+			my $tmp = $line;
+			$tmp =~ s/(\s*)else\n*/$1/;
+			$line =~ s/\n//;
+			print $rf "$tmp}\n$line\{\n";
 			next;
 		}
 		#if line just a new line character replace
@@ -63,6 +68,9 @@ sub convert{
 				if($value =~ /\w+/ and $value ne "while" and $value ne "if"){
 					if($value =~ /^[(][(]\d+/){
 						$value =~ s/\(\(/\(/;
+						print $rf "$value ";
+					}
+					elsif($value =~/^\d+$/){
 						print $rf "$value ";
 					}
 					elsif($value =~/\d+\)\)$/){
@@ -97,7 +105,8 @@ sub convert{
 			my @array = split/\s/, $line;
 			foreach my $value(@array){
 				if($value =~/\d+/){
-					print $rf "$value";
+					$value =~ s/\$//;
+					print $rf "$value ";
 				}
 				elsif($value =~ /\$\w+/){
 					print $rf "$value ";
