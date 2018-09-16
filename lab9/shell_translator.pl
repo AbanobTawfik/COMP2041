@@ -58,7 +58,7 @@ sub convert{
 		}
 		elsif($line =~ /\s*echo.*/){
 			$line =~ s/echo /print "/;
-			$line =~ s/$/";\n/;			
+			$line =~ s/$/\n";\n/;			
 			print $rf "$line";
 		}
 		#case for while loop
