@@ -39,10 +39,10 @@ sub init{
 }	
 
 sub add{
-	my @arguements = @{$_[0]};
 	if(! -e  "$repository"){
 		no_repository();
 	}
+	my @arguements = @{$_[0]};
 	if(! -e "$index"){
 		mkdir "$index";
 	}
@@ -52,12 +52,11 @@ sub add{
 			exit 1;
 		}
 	}
-
 	foreach my $file(@arguements){
-		open($rf, '<', "$file");
+		open($rf, '<', "$file") or die "./legit.pl: could not open $file";
 		@array_of_lines = <$rf>;
 		close $rf;
-		open($rf, '>', "$index/$file");
+		open($rf, '>', "$index/$file") or die "./legit.pl: could not open $index/$file";
 		foreach my $line(@array_of_lines){
 			print $rf "$line";
 		}
@@ -66,17 +65,30 @@ sub add{
 }
 
 sub commit{
-	my @arguements = @{$_[0]};
-	my $commit_message;
-	if(@arguements == 3){
-		$commit_message = $arguements[2];
-	}
-	if($arguements[0] ne "\-m"){
-		print "./legit.pl: usage: ./legit.pl commit [-a] -m \'message\'\n";
-		exit 1;
-	}
 	if(! -e  "$repository"){
 		no_repository();
+	}
+	my @arguements = @{$_[0]};
+	my $commit_message;
+	my $a_flag_on = 0;
+	if(@arguements < 2 || @arguements > 3){
+		commit_error();
+	}
+	if(@arguements == 3){
+		if($arguements[0] ne "-m" and $arguements[1] ne "-m"){
+			commit_error();
+		}
+		if($arguements[0] ne "-a" and $arguements[1] ne "-a"){
+			commit_error();
+		}
+		$a_flag_on = 1;
+		$commit_message = "$arguements[2]";
+	}
+	if(@arguements == 2){
+		if($arguements[0] ne "-m"){
+			commit_error();
+		}
+		$commit_message = "$arguements[1]";
 	}
 	my $count = 0;
 	#scan through to find out the first time that the extension count doesnt exist already
@@ -87,12 +99,27 @@ sub commit{
 	mkdir "$repository/commit$count";
 	my @index_directory = glob("$index/*");
 	foreach my $file(@index_directory){
-		print "$file\n";
+		open($rf, '<', "$file") or die "./legit.pl: could not open $file";
+		@array_of_lines = <$rf>;
+		close $rf;
+		$file =~ s/.*\///;
+		open($rf, '>', "$repository/commit$count/$file") or die "./legit.pl: could not open $repository/commit$count/$file";
+		foreach my $line (@array_of_lines){
+			print $rf "$line";
+		}
+		close $rf;
 	}
+	open($rf, '>', "$repository/commit$count/message.txt") or die "./legit.pl: could not open $repository/commit$count/message";
+	print $rf "$commit_message\n";
+	close $rf;
 
 }
 
 sub no_repository{
 	print "legit.pl: error: the repository has not been initialized try \'\.\/legit\.pl init\' and retry";
+	exit 1;
+}
+sub commit_error{
+	print "./legit.pl: usage: ./legit.pl commit [-a] -m \'message\'\n";
 	exit 1;
 }
