@@ -162,7 +162,7 @@ sub show{
 	$show_file =~ s/.*://;
 	if($commit_number eq ""){
 		if(!-e "$index/$show_file"){
-			print "legit.pl: error: \'$show_file\' not found in index";
+			print "legit.pl: error: \'$show_file\' not found in index\n";
 			exit 1;
 		}
 		open($rf, '<', "$index/$show_file") or die "./legit.pl: could not open $index/$show_file\n";
@@ -178,8 +178,7 @@ sub show{
 			exit 1;
 		}
 		if(!-e "$repository/commit$commit_number/$show_file"){
-			print "legit.pl: error: unknown commit ";
-			print "./legit.pl: fatal error: \'$show_file\' does not exist in commit $commit_number\n";
+			print "legit.pl: error: \'$show_file\' not found in commit $commit_number\n";
 			exit 1;
 		}
 		open($rf, '<', "$repository/commit$commit_number/$show_file") or die "./legit.pl: could not open $repository/commit$commit_number/$show_file\n";
