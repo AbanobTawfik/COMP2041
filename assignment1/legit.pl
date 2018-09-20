@@ -12,6 +12,9 @@ sub main{
 		if($ARGV[0] eq "init"){
 			init();
 		}
+		if($ARGV[0] eq "log"){
+			logg();
+		}
 	}
 	if($ARGV[0] eq "add"){
 		shift @ARGV;
@@ -115,11 +118,32 @@ sub commit{
 
 }
 
-sub no_repository{
-	print "legit.pl: error: the repository has not been initialized try \'\.\/legit\.pl init\' and retry";
-	exit 1;
-}
 sub commit_error{
 	print "./legit.pl: usage: ./legit.pl commit [-a] -m \'message\'\n";
+	exit 1;
+}
+
+sub logg{
+	if(! -e  "$repository"){
+		no_repository();
+	}
+	#now want to show all commit messages 
+	my @log_messages;
+	my @commits = glob("$repository/commit*");
+	foreach my $commit(@commits){
+		open($rf, '<', "$commit/message.txt");
+		@array_of_lines = <$rf>;
+		close $rf;
+		$commit =~ s/.*commit//;
+		push @log_messages, "$commit @array_of_lines";
+	}
+	@log_messages = sort {$b cmp $a} @log_messages;
+	foreach my $line(@log_messages){
+		print "$line";
+	}
+}
+
+sub no_repository{
+	print "legit.pl: error: the repository has not been initialized try \'\.\/legit\.pl init\' and retry";
 	exit 1;
 }
