@@ -55,7 +55,7 @@ sub add{
 	}
 	foreach my $file(@arguements){
 		if(! -e "$file"){
-			print "legit.pl: fatal error: \'$file\' did not match any files\n";
+			print "legit.pl: error: can not open \'$file\'\n";
 			exit 1;
 		}
 	}
@@ -119,6 +119,7 @@ sub commit{
 	open($rf, '>', "$repository/commit$count/message.txt") or die "./legit.pl: could not open $repository/commit$count/message\n";
 	print $rf "$commit_message\n";
 	close $rf;
+	print "Committed as commit $count\n";
 
 }
 
@@ -160,43 +161,37 @@ sub show{
 	my $show_file = $arguements[0];
 	$show_file =~ s/.*://;
 	if($commit_number eq ""){
-		$commit_number = get_most_recent_commit_number();
-		if($commit_number == -1){
-			print "./legit.pl: fatal error: no commits have been made\n";
+		if(!-e "$index/$show_file"){
+			print "legit.pl: error: \'$show_file\' not found in index";
 			exit 1;
 		}
+		open($rf, '<', "$index/$show_file") or die "./legit.pl: could not open $index/$show_file\n";
+		@array_of_lines = <$rf>;
+		close $rf;
+		foreach my $line(@array_of_lines){
+			print "$line";
+		}
+		return;
+	}else{
+		if(! -e "$repository/commit$commit_number"){
+			print "legit.pl: error: unknown commit \'$commit_number\'\n";
+			exit 1;
+		}
+		if(!-e "$repository/commit$commit_number/$show_file"){
+			print "legit.pl: error: unknown commit ";
+			print "./legit.pl: fatal error: \'$show_file\' does not exist in commit $commit_number\n";
+			exit 1;
+		}
+		open($rf, '<', "$repository/commit$commit_number/$show_file") or die "./legit.pl: could not open $repository/commit$commit_number/$show_file\n";
+		@array_of_lines = <$rf>;
+		close $rf;
+		foreach my $line(@array_of_lines){
+			print "$line";
+		}
 	}
-	if(! -e "$repository/commit$commit_number"){
-		print "./legit.pl: fatal error: commit number does not exist\n";
-		exit 1;
-	}
-	if(!-e "$repository/commit$commit_number/$show_file"){
-		print "./legit.pl: fatal error: \'$show_file\' does not exist in commit $commit_number\n";
-		exit 1;
-	}
-	open($rf, '<', "$repository/commit$commit_number/$show_file") or die "./legit.pl: could not open $repository/commit$commit_number/$show_file\n";
-	@array_of_lines = <$rf>;
-	close $rf;
-	foreach my $line(@array_of_lines){
-		print "$line";
-	}
-
 
 }
 
-sub get_most_recent_commit_number{
-		my @commits = glob("$repository/commit*");
-		if(@commits == 0){
-			return -1;
-		}
-		my @commit_numbers;
-		foreach my $commit(@commits){
-			$commit =~ s/.*commit//;
-			push @commit_numbers, "$commit";
-		}
-		@commit_numbers = sort {$b cmp $a} @commit_numbers;
-		return $commit_numbers[0];
-}
 
 sub show_error{
 	print "./legit.pl: usage: ./legit.pl [n]:\'file\'\n";
@@ -204,6 +199,6 @@ sub show_error{
 }
 
 sub no_repository{
-	print "legit.pl: error: the repository has not been initialized try \'\.\/legit\.pl init\' and retry\n";
+	print "legit.pl: error: no .legit directory containing legit repository exists\n";
 	exit 1;
 }
