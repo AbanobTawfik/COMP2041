@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 use warnings;
+use File::Compare;
 #creating main subroutine
 my $repository = ".legit";
 my $index = "$repository/index";
@@ -11,24 +12,29 @@ sub main{
 	if(@ARGV == 1){
 		if($ARGV[0] eq "init"){
 			init();
+			exit 0;
 		}
 		if($ARGV[0] eq "log"){
 			logg();
+			exit 0;
 		}
 	}
 	if($ARGV[0] eq "add"){
 		shift @ARGV;
 		add(\@ARGV);
+		exit 0;
 	}
 	if($ARGV[0] eq "commit"){
 		shift @ARGV;
 		commit(\@ARGV);
+		exit 0;
 	}
 	if($ARGV[0] eq "show"){
 		shift @ARGV;
 		show(\@ARGV);
+		exit 0;
 	}
-	exit 0;
+	exit 1;
 }
 #calling main subroutine
 main();	
@@ -42,7 +48,6 @@ sub init{
 		print "Initialized empty legit repository in .legit\n";
 		return;
 	}
-
 }	
 
 sub add{
@@ -78,6 +83,8 @@ sub commit{
 	my @arguements = @{$_[0]};
 	my $commit_message;
 	my $a_flag_on = 0;
+	my $commit_changed_flag = 0;
+	my $change_flag = 0;
 	if(@arguements < 2 || @arguements > 3){
 		commit_error();
 	}
@@ -103,8 +110,38 @@ sub commit{
 		#increment counter
 		$count++;
 	}
-	mkdir "$repository/commit$count";
+	my $previous_commit_count = $count - 1;
 	my @index_directory = glob("$index/*");
+	if($previous_commit_count >= 0){
+		my @previous_commit = glob("$repository/commit$previous_commit_count/*");
+		foreach my $file(@previous_commit){
+			my $filetmp = $file;
+			$filetmp =~ s/.*\///;
+			if($filetmp eq "message.txt"){
+				print 
+				next;
+			}
+			if(compare("$index/$filetmp","$repository/commit$previous_commit_count/$filetmp") != 0){
+				$change_flag = 1;
+				last;
+			}
+		}
+		foreach my $file(@index_directory){
+			my $filetmp = $file;
+			$filetmp =~ s/.*\///;
+			if(compare("$index/$filetmp","$repository/commit$previous_commit_count/$filetmp") != 0){
+				$change_flag = 1;
+				last;
+			}
+		}
+	}else{
+		$change_flag = 1;
+	}
+	if($change_flag == 0){
+		print "nothing to commit\n";
+		return;
+	}
+	mkdir "$repository/commit$count";
 	foreach my $file(@index_directory){
 		open($rf, '<', "$file") or die "./legit.pl: could not open $file\n";
 		@array_of_lines = <$rf>;
@@ -188,7 +225,6 @@ sub show{
 			print "$line";
 		}
 	}
-
 }
 
 
