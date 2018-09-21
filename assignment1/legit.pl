@@ -283,11 +283,11 @@ sub rm{
 	my @arguements = @{$_[0]};
 	my $cached_remove_flag = 0;
 	my $force_remove_flag = 0;
-	if(@arguements > 2 and $arguements[0] eq "--cached" or $arguements[1] eq "--cached"){
+	if(@arguements >= 2 and ($arguements[0] eq "--cached" or $arguements[1] eq "--cached")){
 		shift @arguements;
 		$cached_remove_flag = 1;
 	}
-	if(@arguements > 2 and ($arguements[0] eq "--force" or $arguements[1] eq "--force")){
+	if(@arguements >= 2 and ($arguements[0] eq "--force" or $arguements[1] eq "--force")){
 		shift @arguements;
 		$force_remove_flag = 1;
 	}
@@ -302,7 +302,7 @@ sub rm{
 	if($force_remove_flag == 1){
 		foreach my $file(@arguements){
 			if(!-e "$index/$file"){
-				print "./legit.pl: \'$file\' was not found in the index\n";
+				print "legit.pl: error: \'$file\' is not in the legit repository\n";
 				exit 1;
 			}
 			unlink "$index/$file";
@@ -311,14 +311,14 @@ sub rm{
 	}elsif($cached_remove_flag == 1){
 		foreach my $file(@arguements){
 			if(!-e "$index/$file"){
-				print "./legit.pl: \'$file\' was not found in the index\n";
+				print "legit.pl: error: \'$file\' is not in the legit repository\n";
 				exit 1;
 			}
-			if(	(compare("$index/$file","$repository/commit$previous_commit_count/$file") != 1)){
+			if((compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0) or (! -e "$repository/$branch/commit$previous_commit_count/$file")){
 				unlink "$index/$file";
-			}else{
-				print "legit.pl: error: \'$file\' has changes staged in the index\n";
+				return;
 			}
+			rm_errors($file,$previous_commit_count);
 		}
 	}else{
 		foreach my $file(@arguements){
@@ -326,19 +326,39 @@ sub rm{
 				print "./legit.pl: \'$file\' was not found in the index\n";
 				exit 1;
 			}
-			if(compare("$file","$repository/commit$previous_commit_count/$file") != 1 and compare("$file","$index/$file") != 1){
+			if(! -e "$index/$file"){
+				print "legit.pl: error: \'$file\' is not in the legit repository\n";
+				next;
+			}
+			if(compare("$file","$repository/$branch/commit$previous_commit_count/$file") == 0 and compare("$file","$index/$file") == 0){
 				unlink "$file";
 				unlink "$index/$file";
-			}else{
-				print "legit.pl: error: \'$file\' in index is different to both working file and repository";
+				return;
 			}
-			if(compare("$file","$repository/commit$previous_commit_count/$file") == 1){
-				print "legit.pl: error: \'$file\' has changes staged in the index\n";
-			}
-			if(compare("$file","$index/$file") == 1){
-				print "legit.pl: error: \'$file\' in repository is different to working file\n";
-			}
+			rm_errors($file,$previous_commit_count);
 		}
+	}
+}
+
+sub rm_errors{
+	my $file = $_[0];
+	my $previous_commit_count = $_[1];
+
+	if(compare("$file","$repository/$branch/commit$previous_commit_count/$file") == 1 and compare("$file","$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
+		print "legit.pl: error: \'$file\' in index is different to both working file and repository\n";
+		return;
+	}
+	if(compare("$file","$index/$file") == 1){
+		print "legit.pl: error: \'$file\' in repository is different to working file\n";
+		return;
+	}
+	if(!-e "$repository/commit$previous_commit_count/$file" and -e "$index/$file"){
+		print "legit.pl: error: \'$file\' has changes staged in the index\n";
+		return;
+	}
+	if(compare("$file","$repository/commit$previous_commit_count/$file") == 1){
+		print "legit.pl: error: \'$file\' has changes staged in the index\n";
+		return;
 	}
 }
 
