@@ -4,7 +4,10 @@ use warnings;
 use File::Compare;
 #creating main subroutine
 my $repository = ".legit";
-my $index = "$repository/index";
+my $branch = "master";
+my $commits = "commit";
+my $index = "$repository/$branch/index";
+my $global_remove = 0;
 my $rf;
 my @array_of_lines;
 sub main{
@@ -34,6 +37,10 @@ sub main{
 		show(\@ARGV);
 		exit 0;
 	}
+	if($ARGV[0] eq "rm"){
+		shift @ARGV;
+		rm(\@ARGV);
+	}
 	exit 1;
 }
 #calling main subroutine
@@ -45,6 +52,9 @@ sub init{
 		return;
 	}else{
 		mkdir "$repository";
+		mkdir "$repository/$branch";
+		open($rf, '>', "$repository/current_branch.txt");
+		print $rf "$branch";
 		print "Initialized empty legit repository in .legit\n";
 		return;
 	}
@@ -59,6 +69,13 @@ sub add{
 		mkdir "$index";
 	}
 	foreach my $file(@arguements){
+		if(-e "$index/$file"){
+			if(!-e "$file"){
+				unlink "$index/$file";
+				$global_remove = 1;
+				return;
+			}	
+		}
 		if(! -e "$file"){
 			print "legit.pl: error: can not open \'$file\'\n";
 			exit 1;
@@ -104,24 +121,30 @@ sub commit{
 		}
 		$commit_message = "$arguements[1]";
 	}
+	if($a_flag_on == 1){
+		add_all_files_to_index();
+	}
 	my $count = 0;
 	#scan through to find out the first time that the extension count doesnt exist already
-	while(-e "$repository/commit$count"){
+	while(-e "$repository/$branch/commit$count"){
 		#increment counter
 		$count++;
 	}
 	my $previous_commit_count = $count - 1;
 	my @index_directory = glob("$index/*");
 	if($previous_commit_count >= 0){
-		my @previous_commit = glob("$repository/commit$previous_commit_count/*");
+		my @previous_commit = glob("$repository/$branch/commit$previous_commit_count/*");
 		foreach my $file(@previous_commit){
 			my $filetmp = $file;
 			$filetmp =~ s/.*\///;
-			if($filetmp eq "message.txt"){
-				print 
+			if($filetmp eq "message.txt"){ 
 				next;
 			}
-			if(compare("$index/$filetmp","$repository/commit$previous_commit_count/$filetmp") != 0){
+			if(!-e "$index/$filetmp"){
+				$change_flag = 1;
+				last;
+			}
+			if(compare("$index/$filetmp","$repository/$branch/commit$previous_commit_count/$filetmp") != 0){
 				$change_flag = 1;
 				last;
 			}
@@ -129,7 +152,7 @@ sub commit{
 		foreach my $file(@index_directory){
 			my $filetmp = $file;
 			$filetmp =~ s/.*\///;
-			if(compare("$index/$filetmp","$repository/commit$previous_commit_count/$filetmp") != 0){
+			if(compare("$index/$filetmp","$repository/$branch/commit$previous_commit_count/$filetmp") != 0){
 				$change_flag = 1;
 				last;
 			}
@@ -137,27 +160,50 @@ sub commit{
 	}else{
 		$change_flag = 1;
 	}
+	if($global_remove == 1){
+		$change_flag = 1;
+	}
 	if($change_flag == 0){
 		print "nothing to commit\n";
 		return;
 	}
-	mkdir "$repository/commit$count";
+	mkdir "$repository/$branch/commit$count";
 	foreach my $file(@index_directory){
 		open($rf, '<', "$file") or die "./legit.pl: could not open $file\n";
 		@array_of_lines = <$rf>;
 		close $rf;
 		$file =~ s/.*\///;
-		open($rf, '>', "$repository/commit$count/$file") or die "./legit.pl: could not open $repository/commit$count/$file\n";
+		open($rf, '>', "$repository/$branch/commit$count/$file") or die "./legit.pl: could not open $repository/$branch/commit$count/$file\n";
 		foreach my $line (@array_of_lines){
 			print $rf "$line";
 		}
 		close $rf;
 	}
-	open($rf, '>', "$repository/commit$count/message.txt") or die "./legit.pl: could not open $repository/commit$count/message\n";
+	open($rf, '>', "$repository/$branch/commit$count/message.txt") or die "./legit.pl: could not open $repository/$branch/commit$count/message\n";
 	print $rf "$commit_message\n";
 	close $rf;
 	print "Committed as commit $count\n";
 
+}
+
+sub add_all_files_to_index{
+	my @arguements = <*>;
+	if(! -e "$index"){
+		mkdir "$index";
+	}
+	foreach my $file(@arguements){
+		if("$file" eq ".." or "$file" eq "." or "$file" eq "legit.pl"){
+			next;
+		}
+		open($rf, '<', "$file") or die "./legit.pl: could not open $file\n";
+		@array_of_lines = <$rf>;
+		close $rf;
+		open($rf, '>', "$index/$file") or die "./legit.pl: could not open $index/$file\n";
+		foreach my $line(@array_of_lines){
+			print $rf "$line";
+		}
+		close $rf;
+	}
 }
 
 sub commit_error{
@@ -171,7 +217,7 @@ sub logg{
 	}
 	#now want to show all commit messages 
 	my @log_messages;
-	my @commits = glob("$repository/commit*");
+	my @commits = glob("$repository/$branch/commit*");
 	foreach my $commit(@commits){
 		open($rf, '<', "$commit/message.txt");
 		@array_of_lines = <$rf>;
@@ -210,15 +256,15 @@ sub show{
 		}
 		return;
 	}else{
-		if(! -e "$repository/commit$commit_number"){
+		if(! -e "$repository/$branch/commit$commit_number"){
 			print "legit.pl: error: unknown commit \'$commit_number\'\n";
 			exit 1;
 		}
-		if(!-e "$repository/commit$commit_number/$show_file"){
+		if(!-e "$repository/$branch/commit$commit_number/$show_file"){
 			print "legit.pl: error: \'$show_file\' not found in commit $commit_number\n";
 			exit 1;
 		}
-		open($rf, '<', "$repository/commit$commit_number/$show_file") or die "./legit.pl: could not open $repository/commit$commit_number/$show_file\n";
+		open($rf, '<', "$repository/$branch/commit$commit_number/$show_file") or die "./legit.pl: could not open $repository/$branch/commit$commit_number/$show_file\n";
 		@array_of_lines = <$rf>;
 		close $rf;
 		foreach my $line(@array_of_lines){
@@ -231,6 +277,69 @@ sub show{
 sub show_error{
 	print "./legit.pl: usage: ./legit.pl [n]:\'file\'\n";
 	exit 1;
+}
+
+sub rm{
+	my @arguements = @{$_[0]};
+	my $cached_remove_flag = 0;
+	my $force_remove_flag = 0;
+	if(@arguements > 2 and $arguements[0] eq "--cached" or $arguements[1] eq "--cached"){
+		shift @arguements;
+		$cached_remove_flag = 1;
+	}
+	if(@arguements > 2 and ($arguements[0] eq "--force" or $arguements[1] eq "--force")){
+		shift @arguements;
+		$force_remove_flag = 1;
+	}
+	my $count = 0;
+	#scan through to find out the first time that the extension count doesnt exist already
+	while(-e "$repository/$branch/commit$count"){
+		#increment counter
+		$count++;
+	}
+	my $previous_commit_count = $count - 1;
+	#force bypasses flag
+	if($force_remove_flag == 1){
+		foreach my $file(@arguements){
+			if(!-e "$index/$file"){
+				print "./legit.pl: \'$file\' was not found in the index\n";
+				exit 1;
+			}
+			unlink "$index/$file";
+			unlink "$file";
+		}
+	}elsif($cached_remove_flag == 1){
+		foreach my $file(@arguements){
+			if(!-e "$index/$file"){
+				print "./legit.pl: \'$file\' was not found in the index\n";
+				exit 1;
+			}
+			if(	(compare("$index/$file","$repository/commit$previous_commit_count/$file") != 1)){
+				unlink "$index/$file";
+			}else{
+				print "legit.pl: error: \'$file\' has changes staged in the index\n";
+			}
+		}
+	}else{
+		foreach my $file(@arguements){
+			if(!-e "$file"){
+				print "./legit.pl: \'$file\' was not found in the index\n";
+				exit 1;
+			}
+			if(compare("$file","$repository/commit$previous_commit_count/$file") != 1 and compare("$file","$index/$file") != 1){
+				unlink "$file";
+				unlink "$index/$file";
+			}else{
+				print "legit.pl: error: \'$file\' in index is different to both working file and repository";
+			}
+			if(compare("$file","$repository/commit$previous_commit_count/$file") == 1){
+				print "legit.pl: error: \'$file\' has changes staged in the index\n";
+			}
+			if(compare("$file","$index/$file") == 1){
+				print "legit.pl: error: \'$file\' in repository is different to working file\n";
+			}
+		}
+	}
 }
 
 sub no_repository{
