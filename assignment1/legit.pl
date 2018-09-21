@@ -283,21 +283,25 @@ sub rm{
 	my @arguements = @{$_[0]};
 	my $cached_remove_flag = 0;
 	my $force_remove_flag = 0;
+	my $shift_counter = 0;
 	if(@arguements >= 2 and $arguements[0] eq "--cached"){
-		shift @arguements;
+		$shift_counter++;
 		$cached_remove_flag = 1;
 	}
 	if(@arguements >= 2 and $arguements[0] eq "--force"){
-		shift @arguements;
+		$shift_counter++;
 		$force_remove_flag = 1;
 	}
 	if(@arguements >= 2 and $arguements[1] eq "--cached"){
-		shift @arguements;
+		$shift_counter++;
 		$cached_remove_flag = 1;
 	}
 	if(@arguements >= 2 and $arguements[1] eq "--force"){
-		shift @arguements;
+		$shift_counter++;
 		$force_remove_flag = 1;
+	}
+	for(my $i = 0; $i < $shift_counter; $i++){
+		shift @arguements;
 	}
 	my $count = 0;
 	#scan through to find out the first time that the extension count doesnt exist already
