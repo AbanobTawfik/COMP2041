@@ -283,11 +283,19 @@ sub rm{
 	my @arguements = @{$_[0]};
 	my $cached_remove_flag = 0;
 	my $force_remove_flag = 0;
-	if(@arguements >= 2 and ($arguements[0] eq "--cached" or $arguements[1] eq "--cached")){
+	if(@arguements >= 2 and $arguements[0] eq "--cached"){
 		shift @arguements;
 		$cached_remove_flag = 1;
 	}
-	if(@arguements >= 2 and ($arguements[0] eq "--force" or $arguements[1] eq "--force")){
+	if(@arguements >= 2 and $arguements[0] eq "--force"){
+		shift @arguements;
+		$force_remove_flag = 1;
+	}
+	if(@arguements >= 2 and $arguements[1] eq "--cached"){
+		shift @arguements;
+		$cached_remove_flag = 1;
+	}
+	if(@arguements >= 2 and $arguements[1] eq "--force"){
 		shift @arguements;
 		$force_remove_flag = 1;
 	}
@@ -314,7 +322,7 @@ sub rm{
 				print "legit.pl: error: \'$file\' is not in the legit repository\n";
 				exit 1;
 			}
-			if((compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0) or (! -e "$repository/$branch/commit$previous_commit_count/$file")){
+			if((compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0)  or (compare("$file","$index/$file") == 0)){
 				unlink "$index/$file";
 				return;
 			}
