@@ -311,16 +311,17 @@ sub rm{
 	}
 	my $previous_commit_count = $count - 1;
 	#force bypasses flag
-	if($force_remove_flag == 1){
-		foreach my $file(@arguements){
-			if(!-e "$index/$file"){
-				print "legit.pl: error: \'$file\' is not in the legit repository\n";
-				exit 1;
+	if($cached_remove_flag == 1){
+		if($force_remove_flag == 1){
+			foreach my $file(@arguements){
+				if(!-e "$index/$file"){
+					print "legit.pl: error: \'$file\' is not in the legit repository\n";
+					exit 1;
+				}
+				unlink "$index/$file";
 			}
-			unlink "$index/$file";
-			unlink "$file";
+			return;
 		}
-	}elsif($cached_remove_flag == 1){
 		foreach my $file(@arguements){
 			if(!-e "$index/$file"){
 				print "legit.pl: error: \'$file\' is not in the legit repository\n";
@@ -333,6 +334,17 @@ sub rm{
 			rm_errors($file,$previous_commit_count);
 		}
 	}else{
+		if($force_remove_flag == 1){
+			foreach my $file(@arguements){
+				if(!-e "$index/$file"){
+					print "legit.pl: error: \'$file\' is not in the legit repository\n";
+					exit 1;
+				}
+				unlink "$index/$file";
+				unlink "$file";
+			}
+			return;
+		}
 		foreach my $file(@arguements){
 			if(!-e "$file"){
 				print "./legit.pl: \'$file\' was not found in the index\n";
