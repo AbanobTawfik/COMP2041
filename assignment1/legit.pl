@@ -2,6 +2,8 @@
 use strict;
 use warnings;
 use File::Compare;
+use File::Copy::Recursive qw(dircopy);
+use File::Path 'rmtree';
 #creating main subroutine
 my $repository = ".legit";
 my $branch = "master";
@@ -252,8 +254,12 @@ sub find_last_commit_number{
 			}
 		}
 	}
-	@commit_numbers = sort{$a <=> $b} @commit_numbers;
-	return $commit_numbers[0];
+	@commit_numbers = sort{$b <=> $a} @commit_numbers;
+	if(@commit_numbers == 0){
+		return 0;
+	}else{
+		return $commit_numbers[0] + 1;
+	}
 }
 
 sub logg{
@@ -351,12 +357,7 @@ sub rm{
 	for(my $i = 0; $i < $shift_counter; $i++){
 		shift @arguements;
 	}
-	my $count = 0;
-	#scan through to find out the first time that the extension count doesnt exist already
-	while(-e "$repository/$branch/commit$count"){
-		#increment counter
-		$count++;
-	}
+	my $count = find_last_commit_number();
 	my $previous_commit_count = $count - 1;
 	if($cached_remove_flag == 1){
 		if($force_remove_flag == 1){
@@ -438,12 +439,7 @@ sub status{
 		no_repository();
 	}
 	my %file_hash;
-	my $count = 0;
-	#scan through to find out the first time that the extension count doesnt exist already
-	while(-e "$repository/$branch/commit$count"){
-		#increment counter
-		$count++;
-	}
+	my $count = find_last_commit_number();
 	my $previous_commit_count = $count - 1;
 	my @index_files = glob("$index/*");
 	my @commit_files = glob("$repository/$branch/commit$previous_commit_count/*");
@@ -524,7 +520,7 @@ sub branch{
 	if(@arguements == 1){
 		$branch_name = $arguements[0];
 	}
-	if(($delete_flag == 0) and (! -e "$repository/$branch/commit0")){
+	if(($delete_flag == 0) and (find_last_commit_number() == 0)){
 		print "legit.pl: error: your repository does not have any commits yet\n";
 		exit 1;
 	}
@@ -554,11 +550,12 @@ sub branch{
 			print "legit.pl: error: branch \'$branch_name\' does not exist\n";
 			exit 1;
 		}else{
-			rmdir "$repository/$branch_name";
+			rmtree(["$repository/$branch_name"]);
 			print "Deleted branch \'$branch_name\'\n";
 			return;
 		}
 	}else{
+		dircopy("$repository/$branch", "$repository/$branch_name");
 		mkdir "$repository/$branch_name";
 		return;
 	}
@@ -584,6 +581,7 @@ sub checkout{
 		open($rf, '>', "$repository/current_branch.txt");
 		print $rf "$branch_name";
 		close $rf;
+
 		print "Switched to branch \'$branch_name\'\n";
 	}
 }
