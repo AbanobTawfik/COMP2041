@@ -16,6 +16,7 @@ sub main{
 		@array_of_lines = <$rf>;
 		close $rf;
 		$branch = $array_of_lines[0];	
+		$index = "$repository/$branch/index";
 	}
 	#call pre-requisite on each program arguement
 	if(@ARGV == 1){
@@ -50,6 +51,16 @@ sub main{
 	if($ARGV[0] eq "rm"){
 		shift @ARGV;
 		rm(\@ARGV);
+		exit 0;
+	}
+	if($ARGV[0] eq "branch"){
+		shift @ARGV;
+		branch(\@ARGV);
+		exit 0;
+	}
+	if($ARGV[0] eq "checkout"){
+		shift @ARGV;
+		checkout(\@ARGV);
 	}
 	exit 1;
 }
@@ -65,6 +76,7 @@ sub init{
 		mkdir "$repository/$branch";
 		open($rf, '>', "$repository/current_branch.txt");
 		print $rf "master";
+		close $rf;
 		print "Initialized empty legit repository in .legit\n";
 		return;
 	}
@@ -134,12 +146,7 @@ sub commit{
 	if($a_flag_on == 1){
 		add_all_files_to_index();
 	}
-	my $count = 0;
-	#scan through to find out the first time that the extension count doesnt exist already
-	while(-e "$repository/$branch/commit$count"){
-		#increment counter
-		$count++;
-	}
+	my $count = find_last_commit_number();
 	my $previous_commit_count = $count - 1;
 	my @index_directory = glob("$index/*");
 	if($previous_commit_count >= 0){
@@ -224,6 +231,31 @@ sub commit_error{
 	exit 1;
 }
 
+sub find_last_commit_number{
+	my $count = 0;
+	my @commit_numbers;
+	my @branches = glob("$repository/*");
+	foreach my $branch(@branches){
+		$branch =~ s/.*\///;
+		if($branch eq "current_branch.txt"){
+			next;
+		}else{
+			my @commits = glob("$repository/$branch/*");
+			foreach my $commit(@commits){
+				$commit =~ s/.*\///;
+				if("$commit" eq "index"){
+					next;
+				}else{
+					$commit =~ s/commit//;
+					push @commit_numbers, $commit;
+				}
+			}
+		}
+	}
+	@commit_numbers = sort{$a <=> $b} @commit_numbers;
+	return $commit_numbers[0];
+}
+
 sub logg{
 	if(! -e  "$repository"){
 		no_repository();
@@ -293,6 +325,9 @@ sub show_error{
 }
 
 sub rm{
+	if(! -e  "$repository"){
+		no_repository();
+	}
 	my @arguements = @{$_[0]};
 	my $cached_remove_flag = 0;
 	my $force_remove_flag = 0;
@@ -399,6 +434,9 @@ sub rm_errors{
 }
 
 sub status{
+	if(! -e  "$repository"){
+		no_repository();
+	}
 	my %file_hash;
 	my $count = 0;
 	#scan through to find out the first time that the extension count doesnt exist already
@@ -466,8 +504,88 @@ sub status_message{
 	}
 }
 
-sub checkout{
+sub branch{
+	if(! -e  "$repository"){
+		no_repository();
+	}
+	my @arguements = @{$_[0]};
+	my $delete_flag = 0;
+	my $branch_name;
+	if(@arguements > 2){
+		print "legit.pl: error: usage \.\/legit\.pl -d \[branch name\]\n";
+	}
+	if(@arguements == 1 and $arguements[0] eq "-d"){
+		print "legit.pl: error: usage \.\/legit\.pl -d \[branch name\]\n";
+	}
+	if(@arguements == 2 and $arguements[0] eq "-d"){
+		$delete_flag = 1;
+		$branch_name = $arguements[1];
+	}
+	if(@arguements == 1){
+		$branch_name = $arguements[0];
+	}
+	if(($delete_flag == 0) and (! -e "$repository/$branch/commit0")){
+		print "legit.pl: error: your repository does not have any commits yet\n";
+		exit 1;
+	}
+	if((@arguements == 1) and (-e "$repository/$branch_name")){
+		print "legit.pl: error: branch \'$branch_name\' already exists\n";
+		exit 1;
+	}
+	if(@arguements == 0){
+		my @branches = glob("$repository/*");
+		foreach my $branch(@branches){
+			$branch =~ s/.*\///;
+			if($branch eq "current_branch.txt"){
+				next;
+			}else{
+				print "$branch\n";
+			}
+		}
+		return;
+	}
 
+	if($delete_flag == 1){
+		if("$branch_name" eq "$branch"){
+			print "legit.pl: error: can not delete branch \'$branch_name\'\n";
+			exit 1;
+		}
+		if(!-e "$repository/$branch_name"){
+			print "legit.pl: error: branch \'$branch_name\' does not exist\n";
+			exit 1;
+		}else{
+			rmdir "$repository/$branch_name";
+			print "Deleted branch \'$branch_name\'\n";
+			return;
+		}
+	}else{
+		mkdir "$repository/$branch_name";
+		return;
+	}
+}
+
+sub checkout{
+	if(! -e  "$repository"){
+		no_repository();
+	}
+	my @arguements = @{$_[0]};
+	if(@arguements != 1){
+		print "legit.pl: usage: ./legit.pl checkout [branch_name]\n";
+		exit 1;
+	}
+	my $branch_name = $arguements[0];
+	if(! -e "$repository/$branch_name"){
+		print "legit.pl: error: the branch \'$branch_name\' does not exist\n";
+		exit 1;
+	}
+	if("$branch" eq "$branch_name"){
+		print "legit.pl: error: already on branch \'$branch_name\'\n";
+	}else{
+		open($rf, '>', "$repository/current_branch.txt");
+		print $rf "$branch_name";
+		close $rf;
+		print "Switched to branch \'$branch_name\'\n";
+	}
 }
 
 sub no_repository{
