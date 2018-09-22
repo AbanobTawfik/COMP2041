@@ -79,6 +79,7 @@ sub init{
 		open($rf, '>', "$repository/current_branch.txt");
 		print $rf "master";
 		close $rf;
+		mkdir "$repository/\.$branch";
 		print "Initialized empty legit repository in .legit\n";
 		return;
 	}
@@ -568,7 +569,7 @@ sub save{
 	my $branch_name = $_[0];
 	my @directory = <*>;
 	foreach my $file(@directory){
-		if("$file" eq "\.legit\.pl"){
+		if("$file" eq "legit\.pl"){
 			next;
 		}
 		open($rf, '<', "$file");
@@ -594,7 +595,7 @@ sub checkout{
 	my $branch_name = $arguements[0];
 
 	if(! -e "$repository/$branch_name"){
-		print "legit.pl: error: unknown branch \'$branch_name\'";
+		print "legit.pl: error: unknown branch \'$branch_name\'\n";
 		exit 1;
 	}
 	if("$branch" eq "$branch_name"){
@@ -602,6 +603,7 @@ sub checkout{
 	}else{
 		#update working directory to current state in index
 		save($branch);
+		#updated_save($branch_name);
 		update_working_directory($branch_name);
 		open($rf, '>', "$repository/current_branch.txt");
 		print $rf "$branch_name";
@@ -611,12 +613,41 @@ sub checkout{
 	}
 }
 
+sub updated_save{
+	my $branch_name = $_[0];
+	my @directory = <*>;
+	foreach my $file(@directory){
+		if("$file" eq "legit\.pl"){
+			next;
+		}
+		if(existss($file, $branch_name) == 0){
+			next;
+		}
+		open($rf, '<', "$file");
+		@array_of_lines = <$rf>;
+		close $rf;
+		open($rf, '>', "$repository/\.$branch_name/$file");
+		foreach my $line(@array_of_lines){
+			print $rf "$line";
+		}
+		close $rf;
+	}
+}
+
+sub existss{
+	my $file = $_[0];
+	my $branch_name = $_[1];
+	if(-e "$repository/\.$branch_name/$file"){
+		return 1;
+	}
+	return 0;
+}
 sub update_working_directory{
 	my $branch_name = $_[0];
 	my @directory = <*>;
 	my @branch_save = glob("$repository/\.$branch_name/*");
 	foreach my $file(@directory){
-		if($file eq "\.legit\.pl"){
+		if($file eq "legit.pl"){
 			next;
 		}else{
 			unlink "$file";
@@ -633,7 +664,6 @@ sub update_working_directory{
 		}
 		close $rf;
 	}
-	#my @working_directory = glob(*);
 }
 
 sub no_repository{
