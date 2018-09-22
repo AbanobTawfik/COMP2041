@@ -551,12 +551,16 @@ sub branch{
 			exit 1;
 		}else{
 			rmtree(["$repository/$branch_name"]);
+			rmtree(["$branch_name\-tmp"]);
 			print "Deleted branch \'$branch_name\'\n";
 			return;
 		}
 	}else{
 		dircopy("$repository/$branch", "$repository/$branch_name");
 		mkdir "$repository/$branch_name";
+		if($branch_name ne "master"){
+			mkdir "$branch_name\-tmp";
+		}
 		return;
 	}
 }
@@ -572,7 +576,7 @@ sub checkout{
 	}
 	my $branch_name = $arguements[0];
 	if(! -e "$repository/$branch_name"){
-		print "legit.pl: error: the branch \'$branch_name\' does not exist\n";
+		print "legit.pl: error: unknown branch \'$branch_name\'";
 		exit 1;
 	}
 	if("$branch" eq "$branch_name"){
