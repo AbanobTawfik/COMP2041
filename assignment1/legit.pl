@@ -317,7 +317,6 @@ sub rm{
 		$count++;
 	}
 	my $previous_commit_count = $count - 1;
-	#force bypasses flag
 	if($cached_remove_flag == 1){
 		if($force_remove_flag == 1){
 			foreach my $file(@arguements){
@@ -336,7 +335,7 @@ sub rm{
 			}
 			if((compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0)  or (compare("$file","$index/$file") == 0)){
 				unlink "$index/$file";
-				return;
+				next;
 			}
 			rm_errors($file,$previous_commit_count);
 		}
@@ -364,7 +363,7 @@ sub rm{
 			if(compare("$file","$repository/$branch/commit$previous_commit_count/$file") == 0 and compare("$file","$index/$file") == 0){
 				unlink "$file";
 				unlink "$index/$file";
-				return;
+				next;
 			}
 			rm_errors($file,$previous_commit_count);
 		}
@@ -439,27 +438,25 @@ sub status{
 sub status_message{
 	my $file = $_[0];
 	my $previous_commit_count = $_[1];
-	
-	if((-e "$file") and (! -e "$index/$file")){
-		print "$file - untracked\n";
+	if("$file" eq ".." or "$file" eq "." or "$file" eq "message.txt" or "$file" eq "current_branch.txt"){
+		return;
 	}
-	elsif(compare("$file", "$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
+	if(compare("$file", "$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
 		print "$file - file changed, different changes staged for commit\n";
-	}
-	elsif(compare("$file", "$index/$file") == 0 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
+	}elsif(compare("$file", "$index/$file") == 0 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
 		print "$file - file changed, changes staged for commit\n";
-	}
-	elsif(compare("$file","$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0){
+	}elsif(compare("$file","$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0){
 		print "$file - file changed, changes not staged for commit\n";
-	}
-	elsif(!-e "$file" and compare("$index/$file", "$repository/$branch/commit$previous_commit_count/$file") == 0){
+	}elsif(!-e "$file" and compare("$index/$file", "$repository/$branch/commit$previous_commit_count/$file") == 0){
+		print "$file - file deleted\n";
+	}elsif((! -e "$file") and (! -e "$index/file") and (-e "$repository/$branch/commit$previous_commit_count/$file")){
 		print "$file - deleted\n";
-	}
-	elsif(compare("$file", "$index/$file") == 0 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0){
+	}elsif(compare("$file", "$index/$file") == 0 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0){
 		print "$file - same as repo\n";
-	}
-	elsif(compare("$file", "$index/$file") == 0 and (! -e "$repository/$branch/commit$previous_commit_count/$file")){
+	}elsif(compare("$file", "$index/$file") == 0 and (! -e "$repository/$branch/commit$previous_commit_count/$file")){
 		print "$file - added to index\n";
+	}elsif((-e "$file") and (! -e "$index/$file")){
+		print "$file - untracked\n";
 	}
 }
 
