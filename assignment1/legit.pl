@@ -21,6 +21,10 @@ sub main{
 			logg();
 			exit 0;
 		}
+		if($ARGV[0] eq "status"){
+			status();
+			exit 0;
+		}
 	}
 	if($ARGV[0] eq "add"){
 		shift @ARGV;
@@ -193,6 +197,9 @@ sub add_all_files_to_index{
 	}
 	foreach my $file(@arguements){
 		if("$file" eq ".." or "$file" eq "." or "$file" eq "legit.pl"){
+			next;
+		}
+		if(! -e "$index/$file"){
 			next;
 		}
 		open($rf, '<', "$file") or die "./legit.pl: could not open $file\n";
@@ -383,6 +390,76 @@ sub rm_errors{
 	if(compare("$file","$repository/commit$previous_commit_count/$file") == 1){
 		print "legit.pl: error: \'$file\' has changes staged in the index\n";
 		return;
+	}
+}
+
+sub status{
+	my %file_hash;
+	my $count = 0;
+	#scan through to find out the first time that the extension count doesnt exist already
+	while(-e "$repository/$branch/commit$count"){
+		#increment counter
+		$count++;
+	}
+	my $previous_commit_count = $count - 1;
+	my @index_files = glob("$index/*");
+	my @commit_files = glob("$repository/$branch/commit$previous_commit_count/*");
+	my @directory_files = glob("*");
+	my @all_files;
+	foreach my $file(@index_files){
+		$file =~ s/.*\///;;
+		$file_hash{$file}++;
+		if($file_hash{$file} <= 1){
+			push @all_files, $file;
+			$file_hash{$file}++;
+		}
+	}
+	foreach my $file(@commit_files){
+		$file =~ s/.*\///;
+		$file_hash{$file}++;
+		if($file_hash{$file} <= 1){
+			push @all_files, $file;
+			$file_hash{$file}++;
+		}
+	}
+	foreach my $file(@directory_files){
+		$file_hash{$file}++;
+		if($file_hash{$file} <= 1){
+			push @all_files, $file;
+			$file_hash{$file}++;
+		}
+	}
+	@all_files = sort {$a cmp $b} @all_files;
+	foreach my $file(@all_files){
+		status_message($file, $previous_commit_count);
+	}
+
+}
+
+sub status_message{
+	my $file = $_[0];
+	my $previous_commit_count = $_[1];
+	
+	if((-e "$file") and (! -e "$index/$file")){
+		print "$file - untracked\n";
+	}
+	elsif(compare("$file", "$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
+		print "$file - file changed, different changes staged for commit\n";
+	}
+	elsif(compare("$file", "$index/$file") == 0 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
+		print "$file - file changed, changes staged for commit\n";
+	}
+	elsif(compare("$file","$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0){
+		print "$file - file changed, changes not staged for commit\n";
+	}
+	elsif(!-e "$file" and compare("$index/$file", "$repository/$branch/commit$previous_commit_count/$file") == 0){
+		print "$file - deleted\n";
+	}
+	elsif(compare("$file", "$index/$file") == 0 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0){
+		print "$file - same as repo\n";
+	}
+	elsif(compare("$file", "$index/$file") == 0 and (! -e "$repository/$branch/commit$previous_commit_count/$file")){
+		print "$file - added to index\n";
 	}
 }
 
