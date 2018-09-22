@@ -11,6 +11,12 @@ my $global_remove = 0;
 my $rf;
 my @array_of_lines;
 sub main{
+	if(-e "$repository/current_branch.txt"){
+		open($rf, '<', "$repository/current_branch.txt");
+		@array_of_lines = <$rf>;
+		close $rf;
+		$branch = $array_of_lines[0];	
+	}
 	#call pre-requisite on each program arguement
 	if(@ARGV == 1){
 		if($ARGV[0] eq "init"){
@@ -58,7 +64,7 @@ sub init{
 		mkdir "$repository";
 		mkdir "$repository/$branch";
 		open($rf, '>', "$repository/current_branch.txt");
-		print $rf "$branch";
+		print $rf "master";
 		print "Initialized empty legit repository in .legit\n";
 		return;
 	}
@@ -458,6 +464,10 @@ sub status_message{
 	}elsif((-e "$file") and (! -e "$index/$file")){
 		print "$file - untracked\n";
 	}
+}
+
+sub checkout{
+
 }
 
 sub no_repository{
