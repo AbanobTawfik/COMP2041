@@ -551,17 +551,34 @@ sub branch{
 			exit 1;
 		}else{
 			rmtree(["$repository/$branch_name"]);
-			rmtree(["$branch_name\-tmp"]);
+			rmtree(["$repository/\.$branch_name"]);
 			print "Deleted branch \'$branch_name\'\n";
 			return;
 		}
 	}else{
 		dircopy("$repository/$branch", "$repository/$branch_name");
 		mkdir "$repository/$branch_name";
-		if($branch_name ne "master"){
-			mkdir "$branch_name\-tmp";
-		}
+		mkdir "$repository/\.$branch_name";
+		save($branch_name);
 		return;
+	}
+}
+
+sub save{
+	my $branch_name = $_[0];
+	my @directory = <*>;
+	foreach my $file(@directory){
+		if("$file" eq "\.legit\.pl"){
+			next;
+		}
+		open($rf, '<', "$file");
+		@array_of_lines = <$rf>;
+		close $rf;
+		open($rf, '>', "$repository/\.$branch_name/$file");
+		foreach my $line(@array_of_lines){
+			print $rf "$line";
+		}
+		close $rf;
 	}
 }
 
@@ -575,6 +592,7 @@ sub checkout{
 		exit 1;
 	}
 	my $branch_name = $arguements[0];
+
 	if(! -e "$repository/$branch_name"){
 		print "legit.pl: error: unknown branch \'$branch_name\'";
 		exit 1;
@@ -582,12 +600,40 @@ sub checkout{
 	if("$branch" eq "$branch_name"){
 		print "legit.pl: error: already on branch \'$branch_name\'\n";
 	}else{
+		#update working directory to current state in index
+		save($branch);
+		update_working_directory($branch_name);
 		open($rf, '>', "$repository/current_branch.txt");
 		print $rf "$branch_name";
 		close $rf;
 
 		print "Switched to branch \'$branch_name\'\n";
 	}
+}
+
+sub update_working_directory{
+	my $branch_name = $_[0];
+	my @directory = <*>;
+	my @branch_save = glob("$repository/\.$branch_name/*");
+	foreach my $file(@directory){
+		if($file eq "\.legit\.pl"){
+			next;
+		}else{
+			unlink "$file";
+		}
+	}
+	foreach my $file(@branch_save){
+		open($rf, '<', "$file");
+		@array_of_lines = <$rf>;
+		close $rf;
+		$file =~ s/.*\///;
+		open($rf, '>', "$file");
+		foreach my $line(@array_of_lines){
+			print $rf "$line";
+		}
+		close $rf;
+	}
+	#my @working_directory = glob(*);
 }
 
 sub no_repository{
