@@ -8,7 +8,7 @@ use File::Path 'rmtree';
 my $repository = ".legit";
 my $branch = "master";
 my $commits = "commit";
-my $index = "$repository/$branch/index";
+my $index = "$repository/index";
 my $global_remove = 0;
 my $rf;
 my @array_of_lines;
@@ -18,7 +18,7 @@ sub main{
 		@array_of_lines = <$rf>;
 		close $rf;
 		$branch = $array_of_lines[0];	
-		$index = "$repository/$branch/index";
+		$index = "$repository/index";
 	}
 	#call pre-requisite on each program arguement
 	if(@ARGV == 1){
@@ -239,6 +239,9 @@ sub find_last_commit_number{
 	my @commit_numbers;
 	my @branches = glob("$repository/*");
 	foreach my $branch(@branches){
+		if("$branch" eq "$repository/index"){
+			next;
+		}
 		$branch =~ s/.*\///;
 		if($branch eq "current_branch.txt"){
 			next;
@@ -533,7 +536,7 @@ sub branch{
 		my @branches = glob("$repository/*");
 		foreach my $branch(@branches){
 			$branch =~ s/.*\///;
-			if($branch eq "current_branch.txt"){
+			if($branch eq "current_branch.txt" or $branch eq "index"){
 				next;
 			}else{
 				print "$branch\n";
@@ -602,9 +605,24 @@ sub checkout{
 		print "legit.pl: error: already on branch \'$branch_name\'\n";
 	}else{
 		#update working directory to current state in index
-		save($branch);
-		#updated_save($branch_name);
-		update_working_directory($branch_name);
+		#updated_save($branch_name, $branch);
+		my $count = 0;
+		my $count2 = 0; 
+		while(-e "$repository/$branch_name/commit$count"){
+			$count++;
+		}
+		$count = $count - 1;
+		$count2 = 0;
+		while(-e "$repository/$branch/commit$count2"){
+			$count2++;
+		}
+		$count2 = $count2 - 1;
+		if($count != $count2){
+			save($branch);
+			update_working_directory($branch_name);
+		}else{
+			update_working_directory($branch);
+		}
 		open($rf, '>', "$repository/current_branch.txt");
 		print $rf "$branch_name";
 		close $rf;
@@ -615,12 +633,13 @@ sub checkout{
 
 sub updated_save{
 	my $branch_name = $_[0];
+	my $branch = $_[1];
 	my @directory = <*>;
 	foreach my $file(@directory){
 		if("$file" eq "legit\.pl"){
 			next;
 		}
-		if(existss($file, $branch_name) == 0){
+		if(existss($file, $branch_name, $branch) == 0){
 			next;
 		}
 		open($rf, '<', "$file");
@@ -637,11 +656,51 @@ sub updated_save{
 sub existss{
 	my $file = $_[0];
 	my $branch_name = $_[1];
-	if(-e "$repository/\.$branch_name/$file"){
+	my $branch = $_[2];
+
+	my $count = 0;
+	while(-e "$repository/$branch_name/commit$count"){
+		$count++;
+	}
+	$count = $count - 1;
+	my $count2 = 0;
+	while(-e "$repository/$branch/commit$count2"){
+		$count2++;
+	}
+	$count2 = $count2 - 1;
+	if($count != $count2){
+		return 0;
+	}
+	my $equivalent_commits = 0;
+	my @first_commits = glob("$repository/$branch_name/commit$count");
+	my @second_commits = glob("$repository/$branch/commit$count2");
+
+	foreach my $files(@first_commits){
+		$file =~ s/.*\///;
+		if($file eq "commit_message.txt"){
+			next;
+		}
+		if(compare("$repository/$branch_name/commit$count/$file", "$repository/$branch/commit$count/$file") != 0){
+			$equivalent_commits = 1;
+		}
+	}
+
+	foreach my $files(@second_commits){
+		$file =~ s/.*\///;
+		if($file eq "commit_message.txt"){
+			next;
+		}
+		if(compare("$repository/$branch_name/commit$count/$file", "$repository/$branch/commit$count/$file") != 0){
+			$equivalent_commits = 1;
+		}
+	}
+
+	if($equivalent_commits == 0){
 		return 1;
 	}
 	return 0;
 }
+
 sub update_working_directory{
 	my $branch_name = $_[0];
 	my @directory = <*>;
