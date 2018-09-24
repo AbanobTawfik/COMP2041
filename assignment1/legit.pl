@@ -64,6 +64,10 @@ sub main{
 		shift @ARGV;
 		checkout(\@ARGV);
 	}
+	if($ARGV[0] eq "merge"){
+		shift @ARGV;
+		merge(\@ARGV);
+	}
 	exit 1;
 }
 #calling main subroutine
@@ -680,7 +684,71 @@ sub update_working_directory{
 }
 
 sub merge{
-	
+	my @arguements = @{$_[0]};
+	if(@arguements != 3 or $arguements[1] ne "-m"){
+		print "legit.pl: error: usage \.\/legit\.pl <merge> <branch> <-m> <commit_message>\n";
+	}
+	my $branch_name = $arguements[0];
+	my $commit_message = $arguements[2];
+	my $count = 0;
+	my $count2 = 0; 
+	while(-e "$repository/$branch_name/commit$count"){
+		$count++;
+	}
+	$count = $count - 1;
+	$count2 = 0;
+	while(-e "$repository/$branch/commit$count2"){
+		$count2++;
+	}
+	$count2 = $count2 - 1;
+
+	if(($count2 == $count) or ("$branch_name" eq "$branch")){
+		print "Already up to date\n";
+		exit 1;
+	}
+
+	#now want to attempt to merge, by combining the last two commits of a branch into
+	#the current branch.
+	my @current_branch_last_commit = glob("$repository/$branch/commit$count2/*");
+	my @merge_branch_last_commit = glob("$repository/$branch_name/commit$count/*");
+	#check if merge is possible
+	my $check = check_if_merge_is_possible(\@current_branch_last_commit, \@merge_branch_last_commit,$count,$count2,$branch_name);
+	if($check == 1){
+		print "legit.pl: error: cannot perform merge\n";
+		exit 1;
+	}
+	perform_merge(\@current_branch_last_commit, \@merge_branch_last_commit);
+
+}
+
+sub check_if_merge_is_possible{
+	my @current_branch_last_commit = @{$_[0]};
+	my @merge_branch_last_commit = @{$_[1]};
+	my $count = $_[2];
+	my $count2 = $_[3];
+	my $branch_name = $_[4];
+	my $previous_commit = $count -1;
+	my $previous_commit2 = $count2 -1;
+	foreach my $file(@current_branch_last_commit){
+		$file =~ s/.*\///;
+		if(! -e "$repository/$branch_name/commit$count/$file"){
+			next;
+		}
+		if(-e "$repository/$branch_name/commit$count/$file"){
+			open($rf, '<', "$repository/$branch_name/commit$count/$file");
+			my @array_of_lines = <$rf>;
+			close $rf;
+			open($rf, '<', "$repository/$branch/commit$count2/$file");
+			my @array_of_lines2 = <$rf>;
+			close $rf;
+		}
+	}
+
+	return 0;
+}
+
+sub perform_merge{
+
 }
 
 sub no_repository{
