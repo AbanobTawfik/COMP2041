@@ -202,6 +202,7 @@ sub commit{
 	open($rf, '>', "$repository/$branch/commit$count/message.txt") or die "./legit.pl: could not open $repository/$branch/commit$count/message\n";
 	print $rf "$commit_message\n";
 	close $rf;
+	save($branch);
 	print "Committed as commit $count\n";
 
 }
@@ -361,24 +362,23 @@ sub rm{
 	for(my $i = 0; $i < $shift_counter; $i++){
 		shift @arguements;
 	}
+
 	my $count = find_last_commit_number();
 	my $previous_commit_count = $count - 1;
 	if($cached_remove_flag == 1){
-		if($force_remove_flag == 1){
-			foreach my $file(@arguements){
-				if(!-e "$index/$file"){
-					print "legit.pl: error: \'$file\' is not in the legit repository\n";
-					exit 1;
-				}
-				unlink "$index/$file";
-			}
-			return;
-		}
 		foreach my $file(@arguements){
 			if(!-e "$index/$file"){
 				print "legit.pl: error: \'$file\' is not in the legit repository\n";
 				exit 1;
 			}
+		}
+		if($force_remove_flag == 1){
+			foreach my $file(@arguements){
+				unlink "$index/$file";
+			}
+			return;
+		}
+		foreach my $file(@arguements){
 			if((compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0)  or (compare("$file","$index/$file") == 0)){
 				unlink "$index/$file";
 				next;
@@ -386,6 +386,16 @@ sub rm{
 			rm_errors($file,$previous_commit_count);
 		}
 	}else{
+		foreach my $file(@arguements){
+			if(!-e "$file"){
+				print "./legit.pl: \'$file\' was not found in the index\n";
+				exit 1;
+			}
+			if(! -e "$index/$file"){
+				print "legit.pl: error: \'$file\' is not in the legit repository\n";
+				exit 1;
+			}
+		}
 		if($force_remove_flag == 1){
 			foreach my $file(@arguements){
 				if(!-e "$index/$file"){
@@ -398,14 +408,6 @@ sub rm{
 			return;
 		}
 		foreach my $file(@arguements){
-			if(!-e "$file"){
-				print "./legit.pl: \'$file\' was not found in the index\n";
-				exit 1;
-			}
-			if(! -e "$index/$file"){
-				print "legit.pl: error: \'$file\' is not in the legit repository\n";
-				next;
-			}
 			if(compare("$file","$repository/$branch/commit$previous_commit_count/$file") == 0 and compare("$file","$index/$file") == 0){
 				unlink "$file";
 				unlink "$index/$file";
@@ -443,7 +445,10 @@ sub status{
 		no_repository();
 	}
 	my %file_hash;
-	my $count = find_last_commit_number();
+	my $count = 0;
+	while(-e "$repository/$branch/commit$count"){
+		$count++;
+	}
 	my $previous_commit_count = $count - 1;
 	my @index_files = glob("$index/*");
 	my @commit_files = glob("$repository/$branch/commit$previous_commit_count/*");
@@ -485,7 +490,9 @@ sub status_message{
 	if("$file" eq ".." or "$file" eq "." or "$file" eq "message.txt" or "$file" eq "current_branch.txt"){
 		return;
 	}
-	if(compare("$file", "$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
+	if(compare("$file","$repository/$branch/commit$previous_commit_count/$file") == 0){
+		print "$file - same as repo\n";
+	}elsif(compare("$file", "$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
 		print "$file - file changed, different changes staged for commit\n";
 	}elsif(compare("$file", "$index/$file") == 0 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
 		print "$file - file changed, changes staged for commit\n";
@@ -495,8 +502,6 @@ sub status_message{
 		print "$file - file deleted\n";
 	}elsif((! -e "$file") and (! -e "$index/file") and (-e "$repository/$branch/commit$previous_commit_count/$file")){
 		print "$file - deleted\n";
-	}elsif(compare("$file", "$index/$file") == 0 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0){
-		print "$file - same as repo\n";
 	}elsif(compare("$file", "$index/$file") == 0 and (! -e "$repository/$branch/commit$previous_commit_count/$file")){
 		print "$file - added to index\n";
 	}elsif((-e "$file") and (! -e "$index/$file")){
@@ -617,11 +622,11 @@ sub checkout{
 			$count2++;
 		}
 		$count2 = $count2 - 1;
+
+		#print "first - $count\nsecond - $count2\n";
 		if($count != $count2){
-			save($branch);
+
 			update_working_directory($branch_name);
-		}else{
-			update_working_directory($branch);
 		}
 		open($rf, '>', "$repository/current_branch.txt");
 		print $rf "$branch_name";
@@ -631,75 +636,6 @@ sub checkout{
 	}
 }
 
-sub updated_save{
-	my $branch_name = $_[0];
-	my $branch = $_[1];
-	my @directory = <*>;
-	foreach my $file(@directory){
-		if("$file" eq "legit\.pl"){
-			next;
-		}
-		if(existss($file, $branch_name, $branch) == 0){
-			next;
-		}
-		open($rf, '<', "$file");
-		@array_of_lines = <$rf>;
-		close $rf;
-		open($rf, '>', "$repository/\.$branch_name/$file");
-		foreach my $line(@array_of_lines){
-			print $rf "$line";
-		}
-		close $rf;
-	}
-}
-
-sub existss{
-	my $file = $_[0];
-	my $branch_name = $_[1];
-	my $branch = $_[2];
-
-	my $count = 0;
-	while(-e "$repository/$branch_name/commit$count"){
-		$count++;
-	}
-	$count = $count - 1;
-	my $count2 = 0;
-	while(-e "$repository/$branch/commit$count2"){
-		$count2++;
-	}
-	$count2 = $count2 - 1;
-	if($count != $count2){
-		return 0;
-	}
-	my $equivalent_commits = 0;
-	my @first_commits = glob("$repository/$branch_name/commit$count");
-	my @second_commits = glob("$repository/$branch/commit$count2");
-
-	foreach my $files(@first_commits){
-		$file =~ s/.*\///;
-		if($file eq "commit_message.txt"){
-			next;
-		}
-		if(compare("$repository/$branch_name/commit$count/$file", "$repository/$branch/commit$count/$file") != 0){
-			$equivalent_commits = 1;
-		}
-	}
-
-	foreach my $files(@second_commits){
-		$file =~ s/.*\///;
-		if($file eq "commit_message.txt"){
-			next;
-		}
-		if(compare("$repository/$branch_name/commit$count/$file", "$repository/$branch/commit$count/$file") != 0){
-			$equivalent_commits = 1;
-		}
-	}
-
-	if($equivalent_commits == 0){
-		return 1;
-	}
-	return 0;
-}
 
 sub update_working_directory{
 	my $branch_name = $_[0];
