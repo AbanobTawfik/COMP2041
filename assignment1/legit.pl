@@ -724,27 +724,86 @@ sub merge{
 sub check_if_merge_is_possible{
 	my @current_branch_last_commit = @{$_[0]};
 	my @merge_branch_last_commit = @{$_[1]};
-	my $count = $_[2];
-	my $count2 = $_[3];
+	my $count2 = $_[2];
+	my $count = $_[3];
 	my $branch_name = $_[4];
-	my $previous_commit = $count -1;
-	my $previous_commit2 = $count2 -1;
+	my $previous_commit = $count - 1;
+	my $previous_commit2 = $count2 - 1;
+	if($previous_commit2 < 0){
+		$previous_commit2 = 0;
+	}
+	if($previous_commit < 0){
+		$previous_commit = 0;
+	}
+	my %hash;
+	my $check_flag = 0;
 	foreach my $file(@current_branch_last_commit){
 		$file =~ s/.*\///;
 		if(! -e "$repository/$branch_name/commit$count/$file"){
 			next;
 		}
 		if(-e "$repository/$branch_name/commit$count/$file"){
+
 			open($rf, '<', "$repository/$branch_name/commit$count/$file");
-			my @array_of_lines = <$rf>;
+			@array_of_lines = <$rf>;
 			close $rf;
 			open($rf, '<', "$repository/$branch/commit$count2/$file");
 			my @array_of_lines2 = <$rf>;
 			close $rf;
+
+			open($rf, '<', "$repository/$branch_name/commit$previous_commit/$file");
+			my @previous_array_of_lines = <$rf>;
+			close $rf;
+			open($rf, '<', "$repository/$branch/commit$previous_commit2/$file");
+			my @previous_array_of_lines2 = <$rf>;
+			close $rf;
+			print "@array_of_lines\n\n@array_of_lines2";
+			for(my $i = 0; $i < @array_of_lines; $i++){
+				$hash{$i} = 0;
+				if($i >= @array_of_lines2){
+					last;
+				}
+				#print "$i - $array_of_lines[$i]<====>$array_of_lines2[$i]\n";
+				if("$array_of_lines[$i]" eq "$array_of_lines2[$i]"){
+					next;
+				}
+				if("$array_of_lines[$i]" ne "$array_of_lines2[$i]"){
+					#print "old - $array_of_lines[$i]<=> new - $array_of_lines2[$i]\n";
+					if($i >= @previous_array_of_lines2){
+						next;
+					}
+					if("$array_of_lines2[$i]" ne "$previous_array_of_lines2[$i]" and $hash{$i} <= 0){
+						$hash{$i}++;
+						$check_flag = 1;
+					}
+				}
+			}
+
+			for(my $i = 0; $i < @array_of_lines2; $i++){
+				if("$array_of_lines[$i]" eq "$array_of_lines2[$i]"){
+					next;
+				}
+				if($i == @array_of_lines - 1){
+					last;
+				}
+				if("$array_of_lines[$i]" ne "$array_of_lines2[$i]" ){
+					if($i >= @previous_array_of_lines){
+						next;
+					}
+					if("$array_of_lines[$i]" ne "$previous_array_of_lines[$i]" and $hash{$i} <= 0){
+						$hash{$i}++;
+						$check_flag = 1;
+					}
+				}
+			}
 		}
 	}
 
-	return 0;
+	#foreach my $key(sort keys %hash){
+	#	print "$key - $hash{$key}\n";
+	#}
+	#print "can merge? = $check_flag\n";
+	return $check_flag;
 }
 
 sub perform_merge{
