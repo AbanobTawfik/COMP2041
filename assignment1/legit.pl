@@ -622,7 +622,7 @@ sub checkout{
 			$count2++;
 		}
 		$count2 = $count2 - 1;
-
+		add_new_files();
 		#print "first - $count\nsecond - $count2\n";
 		if($count != $count2){
 
@@ -636,6 +636,24 @@ sub checkout{
 	}
 }
 
+sub add_new_files{
+	my @directory = <*>;
+	foreach my $file(@directory){
+		if("$file" eq ".." or "$file" eq "." or "$file" eq "legit.pl"){
+			next;
+		}
+		if(! -e "$repository/\.$branch/$file"){
+			open($rf, '<', "$file");
+			@array_of_lines = <$rf>;
+			close $rf;
+			open($rf, '>', "$repository/\.$branch/$file");
+			foreach my $line(@array_of_lines){
+				print $rf "$line";
+			}
+			close $rf;			
+		}
+	}
+}
 
 sub update_working_directory{
 	my $branch_name = $_[0];
@@ -659,6 +677,10 @@ sub update_working_directory{
 		}
 		close $rf;
 	}
+}
+
+sub merge{
+	
 }
 
 sub no_repository{
