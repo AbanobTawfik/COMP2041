@@ -12,6 +12,7 @@ my $index = "$repository/index";
 my $global_remove = 0;
 my $rf;
 my @array_of_lines;
+my $merge_allowed = 0;
 sub main{
 	if(-e "$repository/current_branch.txt"){
 		open($rf, '<', "$repository/current_branch.txt");
@@ -207,8 +208,12 @@ sub commit{
 	print $rf "$commit_message\n";
 	close $rf;
 	save($branch);
-	print "Committed as commit $count\n";
-
+	if($merge_allowed == 0){
+		print "Committed as commit $count\n";
+	}
+	if($merge_allowed == 0){
+		update_working_directory($branch);
+	}
 }
 
 sub add_all_files_to_index{
@@ -684,6 +689,9 @@ sub update_working_directory{
 }
 
 sub merge{
+	if(! -e  "$repository"){
+		no_repository();
+	}
 	my @arguements = @{$_[0]};
 	if(@arguements != 3 or $arguements[1] ne "-m"){
 		print "legit.pl: error: usage \.\/legit\.pl <merge> <branch> <-m> <commit_message>\n";
@@ -725,8 +733,12 @@ sub merge{
 		print "legit.pl: error: cannot perform merge\n";
 		exit 1;
 	}
-	perform_merge(\@current_branch_last_commit, \@merge_branch_last_commit);
-
+	perform_merge(\@current_branch_last_commit, \@merge_branch_last_commit, $branch_name,$count,$count2,$previous_commit, $previous_commit2);
+	my @commit_arguements;
+	$commit_arguements[0] = "-m";
+	$commit_arguements[1] = "$commit_message";
+	$merge_allowed = 1;
+	commit(\@commit_arguements);
 }
 
 sub check_if_merge_is_possible{
@@ -739,6 +751,7 @@ sub check_if_merge_is_possible{
 	my $previous_commit2 = $_[6];
 	my %hash;
 	my $check_flag = 0;
+	my @failed_merge_files;
 	foreach my $file(@current_branch_last_commit){
 		$file =~ s/.*\///;
 		if("$file" eq "message.txt"){
@@ -749,17 +762,16 @@ sub check_if_merge_is_possible{
 			next;
 		}
 		if(-e "$repository/$branch_name/commit$count/$file"){
-			open($rf, '<', "$repository/$branch_name/commit$count/$file");
+			open($rf, '<', "$repository/$branch_name/commit$count/$file") or die "could not open \'$repository/$branch_name/commit$count/$file\'\n";
 			@array_of_lines = <$rf>;
 			close $rf;
-			open($rf, '<', "$repository/$branch/commit$count2/$file");
+			open($rf, '<', "$repository/$branch/commit$count2/$file") or die "could not open \'$repository/$branch/commit$count2/$file\'\n";
 			my @array_of_lines2 = <$rf>;
 			close $rf;
-
-			open($rf, '<', "$repository/$branch_name/commit$previous_commit/$file");
+			open($rf, '<', "$repository/$branch_name/commit$previous_commit/$file") or die "$repository/$branch_name/commit$previous_commit/$file\'\n";
 			my @previous_array_of_lines = <$rf>;
 			close $rf;
-			open($rf, '<', "$repository/$branch/commit$previous_commit2/$file");
+			open($rf, '<', "$repository/$branch/commit$previous_commit2/$file") or die "$repository/$branch/commit$previous_commit2/$file\'\n";
 			my @previous_array_of_lines2 = <$rf>;
 			close $rf;
 			for(my $i = 0; $i < @array_of_lines; $i++){
@@ -797,19 +809,130 @@ sub check_if_merge_is_possible{
 				}
 			}
 		}
-	}
-
-	foreach my $key(sort keys %hash){
-		if($hash{$key} > 1){
-			$check_flag = 1;
+		foreach my $key(sort keys %hash){
+			if($hash{$key} > 1){
+				push @failed_merge_files, $file;
+			}
 		}
 	}
+
+	if(@failed_merge_files > 0){
+		$check_flag = 1;
+		print "legit.pl: error: These files can not be merged:\n";
+		@failed_merge_files = sort {$a cmp $b} @failed_merge_files;
+		foreach my $failed_merge_file(@failed_merge_files){
+			print "$failed_merge_file\n";
+		}
+	}
+
 	return $check_flag;
 }
 
 sub perform_merge{
+	my @current_branch_last_commit = @{$_[0]};
+	my @merge_branch_last_commit = @{$_[1]};
+	my $branch_name = $_[2];
+	my $count = $_[3];
+	my $count2 = $_[4];
+	my $previous_commit = $_[5];
+	my $previous_commit2 = $_[6];
+	foreach my $file(@current_branch_last_commit){
+		my $filetmp = $file;
+		$filetmp =~ s/.*\///;
+		if("$filetmp" eq "message.txt"){
+			next;
+		}
+		if((compare("$index/$filetmp","$file") == 0) and (compare("$file", "$repository/$branch_name/commit$count2/$filetmp") == 0)){
+			print "hi\n";
+			next;
+		}
+		if((! -e "$index/$filetmp") and ((compare("$file", "$repository/$branch_name/commit$count2/$filetmp") == 0)) or (! -e "$repository/$branch_name/commit$count2/$filetmp")){
+			open($rf, '<', "$file");
+			@array_of_lines = <$rf>;
+			close $rf;
+			open ($rf, '>', "$index/$filetmp");
+			foreach my $line(@array_of_lines){
+				print $rf "$line";
+			}
+			close $rf;
+			next;
+		}
+		if((compare("$file", "$repository/$branch_name/commit$count2/$filetmp") == 1)){
+			print "Auto-merging $filetmp\n";
+			open($rf, '<', "$file") or die "could not open \'$file\'\n";
+			@array_of_lines = <$rf>;
+			close $rf;
+			open($rf, '<', "$repository/$branch_name/commit$count2/$filetmp") or die "could not open \'$repository/$branch_name/commit$count2/$filetmp\'\n";
+			my @array_of_lines2 = <$rf>;
+			close $rf;
+			open($rf, '<', "$repository/$branch/commit$previous_commit2/$filetmp") or die "could not open \'$repository/$branch/commit$previous_commit2/$filetmp\'\n";
+			my @previous_array_of_lines = <$rf>;
+			close $rf;
+			open($rf, '<', "$repository/$branch_name/commit$previous_commit/$filetmp") or die "could not open \'$repository/$branch_name/commit$previous_commit/$file\'\n";
+			my @previous_array_of_lines2 = <$rf>;
+			close $rf;
+			open($rf, '>', "$index/$filetmp") or die "could not open \'$index/$filetmp\'\n";
 
+			for(my $i = 0; $i < @array_of_lines; $i++){
+				if($i > @array_of_lines2){
+					print $rf "$array_of_lines[$i]";
+					next;
+				}
+				if("$array_of_lines[$i]" eq "$array_of_lines2[$i]"){
+					print $rf "$array_of_lines[$i]";
+				}else{
+					if("$array_of_lines[$i]" eq "$previous_array_of_lines[$i]"){
+						print $rf "$array_of_lines2[$i]";
+					}else{
+						print $rf "$array_of_lines[$i]";
+					}
+				}
+			}
+			close $rf;
+		}
+	}
+
+	foreach my $file(@merge_branch_last_commit){
+		my $filetmp = $file;
+		$filetmp =~ s/.*\///;
+		if((compare("$index/$filetmp","$file") == 0) and (compare("$file", "$repository/$branch/commit$count/$filetmp") == 0)){
+			print "hi\n";
+			next;
+		}
+		if((! -e "$index/$filetmp") and ((compare("$file", "$repository/$branch/commit$count/$filetmp") == 0)) or (! -e "$repository/$branch/commit$count/$filetmp")){
+			open($rf, '<', "$file");
+			@array_of_lines = <$rf>;
+			close $rf;
+			open ($rf, '>', "$index/$filetmp");
+			foreach my $line(@array_of_lines){
+				print $rf "$line";
+			}
+			close $rf;
+			next;
+		}
+		if((compare("$file", "$repository/$branch/commit$count/$filetmp") == 1)){
+			open($rf, '<', "$file");
+			@array_of_lines = <$rf>;
+			close $rf;
+			open($rf, '<', "$repository/$branch_name/commit$count2/$filetmp");
+			my @array_of_lines2 = <$rf>;
+			close $rf;
+			open($rf, '<', "$repository/$branch/commit$previous_commit2/$filetmp");
+			my @previous_array_of_lines = <$rf>;
+			close $rf;
+			open($rf, '<', "$repository/$branch_name/commit$previous_commit/$filetmp");
+			my @previous_array_of_lines2 = <$rf>;
+			close $rf;
+			open($rf, '>>', "$index/$filetmp");
+
+			for(my $i = @array_of_lines2; $i < @array_of_lines; $i++){
+				print $rf "$array_of_lines[$i]";
+			}
+			close $rf;
+		}
+	}
 }
+
 
 sub no_repository{
 	print "legit.pl: error: no .legit directory containing legit repository exists\n";
