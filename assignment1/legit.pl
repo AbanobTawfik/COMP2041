@@ -690,18 +690,26 @@ sub merge{
 	}
 	my $branch_name = $arguements[0];
 	my $commit_message = $arguements[2];
-	my $count = 0;
-	my $count2 = 0; 
-	while(-e "$repository/$branch_name/commit$count"){
-		$count++;
+	my $count;
+	my @commits = glob("$repository/$branch/commit*");
+	my @commit_numbers_current_branch;
+	foreach my $commit(@commits){
+		$commit =~ s/.*commit//;
+		push @commit_numbers_current_branch, "$commit";
 	}
-	$count = $count - 1;
-	$count2 = 0;
-	while(-e "$repository/$branch/commit$count2"){
-		$count2++;
+	@commit_numbers_current_branch = sort {$b cmp $a} @commit_numbers_current_branch;
+	$count = $commit_numbers_current_branch[0];
+	my $previous_commit = $commit_numbers_current_branch[1];
+	my $count2;
+	my @commits2 = glob("$repository/$branch_name/commit*");
+	my @commit_numbers_merge_branch;
+	foreach my $commit(@commits2){
+		$commit =~ s/.*commit//;
+		push @commit_numbers_merge_branch, "$commit";
 	}
-	$count2 = $count2 - 1;
-
+	@commit_numbers_merge_branch = sort {$b cmp $a} @commit_numbers_merge_branch;
+	$count2 = $commit_numbers_merge_branch[0];
+	my $previous_commit2 = $commit_numbers_merge_branch[1];
 	if(($count2 == $count) or ("$branch_name" eq "$branch")){
 		print "Already up to date\n";
 		exit 1;
@@ -709,10 +717,10 @@ sub merge{
 
 	#now want to attempt to merge, by combining the last two commits of a branch into
 	#the current branch.
-	my @current_branch_last_commit = glob("$repository/$branch/commit$count2/*");
-	my @merge_branch_last_commit = glob("$repository/$branch_name/commit$count/*");
+	my @current_branch_last_commit = glob("$repository/$branch/commit$count/*");
+	my @merge_branch_last_commit = glob("$repository/$branch_name/commit$count2/*");
 	#check if merge is possible
-	my $check = check_if_merge_is_possible(\@current_branch_last_commit, \@merge_branch_last_commit,$count,$count2,$branch_name);
+	my $check = check_if_merge_is_possible(\@current_branch_last_commit, \@merge_branch_last_commit,$count,$count2,$branch_name,$previous_commit, $previous_commit2);
 	if($check == 1){
 		print "legit.pl: error: cannot perform merge\n";
 		exit 1;
@@ -727,23 +735,20 @@ sub check_if_merge_is_possible{
 	my $count2 = $_[2];
 	my $count = $_[3];
 	my $branch_name = $_[4];
-	my $previous_commit = $count - 1;
-	my $previous_commit2 = $count2 - 1;
-	if($previous_commit2 < 0){
-		$previous_commit2 = 0;
-	}
-	if($previous_commit < 0){
-		$previous_commit = 0;
-	}
+	my $previous_commit = $_[5];
+	my $previous_commit2 = $_[6];
 	my %hash;
 	my $check_flag = 0;
 	foreach my $file(@current_branch_last_commit){
 		$file =~ s/.*\///;
+		if("$file" eq "message.txt"){
+			next;
+		}
+
 		if(! -e "$repository/$branch_name/commit$count/$file"){
 			next;
 		}
 		if(-e "$repository/$branch_name/commit$count/$file"){
-
 			open($rf, '<', "$repository/$branch_name/commit$count/$file");
 			@array_of_lines = <$rf>;
 			close $rf;
@@ -757,24 +762,20 @@ sub check_if_merge_is_possible{
 			open($rf, '<', "$repository/$branch/commit$previous_commit2/$file");
 			my @previous_array_of_lines2 = <$rf>;
 			close $rf;
-			print "@array_of_lines\n\n@array_of_lines2";
 			for(my $i = 0; $i < @array_of_lines; $i++){
 				$hash{$i} = 0;
 				if($i >= @array_of_lines2){
 					last;
 				}
-				#print "$i - $array_of_lines[$i]<====>$array_of_lines2[$i]\n";
 				if("$array_of_lines[$i]" eq "$array_of_lines2[$i]"){
 					next;
 				}
 				if("$array_of_lines[$i]" ne "$array_of_lines2[$i]"){
-					#print "old - $array_of_lines[$i]<=> new - $array_of_lines2[$i]\n";
 					if($i >= @previous_array_of_lines2){
 						next;
 					}
-					if("$array_of_lines2[$i]" ne "$previous_array_of_lines2[$i]" and $hash{$i} <= 0){
+					if("$array_of_lines2[$i]" ne "$previous_array_of_lines2[$i]"){
 						$hash{$i}++;
-						$check_flag = 1;
 					}
 				}
 			}
@@ -790,19 +791,19 @@ sub check_if_merge_is_possible{
 					if($i >= @previous_array_of_lines){
 						next;
 					}
-					if("$array_of_lines[$i]" ne "$previous_array_of_lines[$i]" and $hash{$i} <= 0){
+					if("$array_of_lines[$i]" ne "$previous_array_of_lines[$i]"){
 						$hash{$i}++;
-						$check_flag = 1;
 					}
 				}
 			}
 		}
 	}
 
-	#foreach my $key(sort keys %hash){
-	#	print "$key - $hash{$key}\n";
-	#}
-	#print "can merge? = $check_flag\n";
+	foreach my $key(sort keys %hash){
+		if($hash{$key} > 1){
+			$check_flag = 1;
+		}
+	}
 	return $check_flag;
 }
 
