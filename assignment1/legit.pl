@@ -917,7 +917,9 @@ sub check_if_merge_is_possible{
 		$previous_commit2 = 0;
 	}
 	foreach my $file(@current_branch_last_commit){
+		undef %hash;
 		$file =~ s/.*\///;
+
 		if((compare("$repository/$branch/commit$count2/$file", "$repository/$branch_name/commit$count/$file") == 0)){
 			next;
 		}
@@ -946,43 +948,37 @@ sub check_if_merge_is_possible{
 			open($rf, '<', "$repository/$branch/commit$previous_commit2/$file") or die "could not open \'$repository/$branch/commit$previous_commit2/$file\'\n";
 			my @previous_array_of_lines2 = <$rf>;
 			close $rf;
-			for(my $i = 0; $i < @array_of_lines; $i++){
-				$hash{$i} = 0;
-				if($i >= @array_of_lines2){
-					last;
-				}
-				if("$array_of_lines[$i]" eq "$array_of_lines2[$i]"){
+			foreach my $line(@array_of_lines, @previous_array_of_lines, @array_of_lines2){
+				if(grep(/^$line$/, @previous_array_of_lines) and grep(/^$line$/,@array_of_lines) and grep(/^$line$/, @array_of_lines2)){
+					$hash{$line} = 2;
 					next;
 				}
-				if("$array_of_lines[$i]" ne "$array_of_lines2[$i]"){
-					if($i >= @previous_array_of_lines2){
-						next;
-					}
-					if("$array_of_lines2[$i]" ne "$previous_array_of_lines2[$i]"){
-						$hash{$i}++;
-					}
+				if(grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
+					$hash{$line} = 0;
+					next;
 				}
-			}
 
-			for(my $i = 0; $i < @array_of_lines2; $i++){
-				if("$array_of_lines[$i]" eq "$array_of_lines2[$i]"){
+				if(grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and ( grep(/^$line$/,@array_of_lines2))){
+					$hash{$line} = 1;
 					next;
 				}
-				if($i == @array_of_lines - 1){
-					last;
+				if(grep(/^$line$/, @previous_array_of_lines) and ( grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
+					$hash{$line} = 1;
+					next;
 				}
-				if("$array_of_lines[$i]" ne "$array_of_lines2[$i]" ){
-					if($i >= @previous_array_of_lines){
-						next;
-					}
-					if("$array_of_lines[$i]" ne "$previous_array_of_lines[$i]"){
-						$hash{$i}++;
-					}
+				if(! grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and ( grep(/^$line$/,@array_of_lines2))){
+					$hash{$line} = 1;
+					next;
 				}
+				if(! grep(/^$line$/, @previous_array_of_lines) and ( grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
+					$hash{$line} = 1;
+					next;
+				}
+				
 			}
 		}
 		foreach my $key(sort keys %hash){
-			if($hash{$key} > 1){
+			if($hash{$key} == 0){
 				push @failed_merge_files, $file;
 			}
 		}
@@ -996,7 +992,6 @@ sub check_if_merge_is_possible{
 			print "$failed_merge_file\n";
 		}
 	}
-	exit 0;
 	return $check_flag;
 }
 
