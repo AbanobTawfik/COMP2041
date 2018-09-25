@@ -3,7 +3,9 @@ use strict;
 use warnings;
 use File::Compare;
 use File::Copy::Recursive qw(dircopy);
+use List::MoreUtils qw(uniq);
 use File::Path 'rmtree';
+use File::Copy;
 #creating main subroutine
 my $repository = ".legit";
 my $branch = "master";
@@ -208,11 +210,34 @@ sub commit{
 	print $rf "$commit_message\n";
 	close $rf;
 	save($branch);
-	if($merge_allowed == 0){
 		print "Committed as commit $count\n";
+	if($merge_allowed == 1){
+		update_working_directory_from_index($count);
 	}
-	if($merge_allowed == 0){
-		update_working_directory($branch);
+}
+
+sub update_working_directory_from_index{
+	my $count = $_[0];
+	my @files = glob("$index/*");
+	foreach my $file(@files){
+		my $filetmp = $file;
+		$filetmp =~ s/.*\///;
+		if("$filetmp" eq ".." or "$filetmp" eq "." or "$filetmp" eq "legit.pl" or "$filetmp" eq "message.txt"){
+			next;
+		}
+		if(! -e "$filetmp" or compare("$file", "$filetmp") == 1){
+			open($rf, '<', "$file");
+			@array_of_lines = <$rf>;
+			close $rf;
+			open($rf, '>', "$filetmp");
+			foreach my $line(@array_of_lines){
+				print $rf "$line";
+			}
+			close $rf;
+		}
+		if(compare("$file","$filetmp") == 0){
+			next;
+		}
 	}
 }
 
@@ -560,6 +585,38 @@ sub branch{
 	}
 
 	if($delete_flag == 1){
+		if(!-e "$repository/$branch_name"){
+			print "legit.pl: error: branch \'$branch_name\' does not exist\n";
+			exit 1;
+		}
+		my $count;
+		my @commits = glob("$repository/$branch/commit*");
+		my @commit_numbers_current_branch;
+		foreach my $commit(@commits){
+			$commit =~ s/.*commit//;
+			push @commit_numbers_current_branch, "$commit";
+		}
+		@commit_numbers_current_branch = sort {$b cmp $a} @commit_numbers_current_branch;
+		$count = $commit_numbers_current_branch[0];
+		my $previous_commit = $commit_numbers_current_branch[1];
+		my $count2;
+		my @commits2 = glob("$repository/$branch_name/commit*");
+		my @commit_numbers_merge_branch;
+		foreach my $commit(@commits2){
+			$commit =~ s/.*commit//;
+			push @commit_numbers_merge_branch, "$commit";
+		}
+		@commit_numbers_merge_branch = sort {$b cmp $a} @commit_numbers_merge_branch;
+		$count2 = $commit_numbers_merge_branch[0];
+		my $previous_commit2 = $commit_numbers_merge_branch[1];
+		my @current_branch_last_commit = glob("$repository/$branch/commit$count/*");
+		my @merge_branch_last_commit = glob("$repository/$branch_name/commit$count2/*");
+		
+		my $check = check_if_merge_is_possible(\@current_branch_last_commit, \@merge_branch_last_commit,$count,$count2,$branch_name,$previous_commit, $previous_commit2);
+		if($check != 1){
+			print "legit.pl: error: branch \'$branch_name\' has unmerged changes\n";
+			exit 1;
+		}
 		if("$branch_name" eq "$branch"){
 			print "legit.pl: error: can not delete branch \'$branch_name\'\n";
 			exit 1;
@@ -620,29 +677,66 @@ sub checkout{
 	}else{
 		#update working directory to current state in index
 		#updated_save($branch_name, $branch);
-		my $count = 0;
-		my $count2 = 0; 
-		while(-e "$repository/$branch_name/commit$count"){
-			$count++;
-		}
-		$count = $count - 1;
-		$count2 = 0;
-		while(-e "$repository/$branch/commit$count2"){
-			$count2++;
-		}
-		$count2 = $count2 - 1;
-		add_new_files();
-		#print "first - $count\nsecond - $count2\n";
-		if($count != $count2){
 
+		my $count;
+		my @commits = glob("$repository/$branch/commit*");
+		my @commit_numbers_current_branch;
+		foreach my $commit(@commits){
+			$commit =~ s/.*commit//;
+			push @commit_numbers_current_branch, "$commit";
+		}
+		@commit_numbers_current_branch = sort {$b cmp $a} @commit_numbers_current_branch;
+		$count = $commit_numbers_current_branch[0];
+		my $count2;
+		my @commits2 = glob("$repository/$branch_name/commit*");
+		my @commit_numbers_merge_branch;
+		foreach my $commit(@commits2){
+			$commit =~ s/.*commit//;
+			push @commit_numbers_merge_branch, "$commit";
+		}
+		@commit_numbers_merge_branch = sort {$b cmp $a} @commit_numbers_merge_branch;
+		$count2 = $commit_numbers_merge_branch[0];
+		check_override($branch_name, $count, $count2);
+		add_new_files();
+		if($count != $count2){
 			update_working_directory($branch_name);
 		}
+
 		open($rf, '>', "$repository/current_branch.txt");
 		print $rf "$branch_name";
 		close $rf;
 
 		print "Switched to branch \'$branch_name\'\n";
 	}
+}
+
+sub check_override{
+	my $check = 0;
+	my $branch_name = $_[0];
+	my $count = $_[1];
+	my $count2 = $_[2];
+	my @directory = <*>;
+	my @unsaved_work;
+	if($count == $count2){
+		return;
+	}
+	foreach my $file(@directory){
+		if("$file" eq ".." or "$file" eq "." or "$file" eq "legit.pl" or "$file" eq "diary.txt"){
+			next;
+		}
+		if((compare("$file","$index/$file") != 0) and (compare("$file","repository/$branch/commit$count/$file")!= 0) and (compare("$file","$repository/$branch_name/commit$count2/$file") != 0)
+			and (compare("$file", "$repository/\.$branch/$file") != 0) and (compare("$file", "$repository/\.$branch_name/$file") != 0)){
+			push @unsaved_work, $file;
+		}
+	}
+	if(@unsaved_work >= 1){
+		print "legit.pl: error: Your changes to the following files would be overwritten by checkout:\n";
+		foreach my $file(@unsaved_work){
+			print "$file\n";
+		}
+		exit 1;
+	}
+
 }
 
 sub add_new_files{
@@ -693,11 +787,28 @@ sub merge{
 		no_repository();
 	}
 	my @arguements = @{$_[0]};
-	if(@arguements != 3 or $arguements[1] ne "-m"){
+	if(@arguements != 3 and ($arguements[0] ne "-m" or $arguements[1] ne "-m")){
 		print "legit.pl: error: usage \.\/legit\.pl <merge> <branch> <-m> <commit_message>\n";
+		exit 1;
 	}
-	my $branch_name = $arguements[0];
-	my $commit_message = $arguements[2];
+	my $commit_message;
+	my $branch_name;
+	if($arguements[0] eq "-m"){
+		$commit_message = $arguements[1];
+		$branch_name = $arguements[2];
+	}
+	if($arguements[1] eq "-m"){
+		$branch_name = $arguements[0];
+		$commit_message = $arguements[2];
+	}
+	if(! defined $commit_message){
+		print "legit.pl: error: empty commit message\n";
+	}
+
+	if(! -e "$repository/$branch_name"){
+		print "legit.pl: error: unknown branch \'$branch_name\'\n";
+	}
+
 	my $count;
 	my @commits = glob("$repository/$branch/commit*");
 	my @commit_numbers_current_branch;
@@ -718,6 +829,11 @@ sub merge{
 	@commit_numbers_merge_branch = sort {$b cmp $a} @commit_numbers_merge_branch;
 	$count2 = $commit_numbers_merge_branch[0];
 	my $previous_commit2 = $commit_numbers_merge_branch[1];
+	if((!defined $count2) or (!defined $count) or ($count2 > $count)){
+		fast_forward($branch_name, $count2);
+		print "Fast-forward: no commit created\n";
+		exit 1;
+	}
 	if(($count2 == $count) or ("$branch_name" eq "$branch")){
 		print "Already up to date\n";
 		exit 1;
@@ -728,9 +844,9 @@ sub merge{
 	my @current_branch_last_commit = glob("$repository/$branch/commit$count/*");
 	my @merge_branch_last_commit = glob("$repository/$branch_name/commit$count2/*");
 	#check if merge is possible
+
 	my $check = check_if_merge_is_possible(\@current_branch_last_commit, \@merge_branch_last_commit,$count,$count2,$branch_name,$previous_commit, $previous_commit2);
 	if($check == 1){
-		print "legit.pl: error: cannot perform merge\n";
 		exit 1;
 	}
 	perform_merge(\@current_branch_last_commit, \@merge_branch_last_commit, $branch_name,$count,$count2,$previous_commit, $previous_commit2);
@@ -739,6 +855,39 @@ sub merge{
 	$commit_arguements[1] = "$commit_message";
 	$merge_allowed = 1;
 	commit(\@commit_arguements);
+	add_all_extra_commits($branch_name);
+
+}
+
+sub add_all_extra_commits{
+	my $branch_name = $_[0];
+	my @merge_branch_directory = glob("$repository/$branch_name/*");
+
+	foreach my $commit(@merge_branch_directory){
+		$commit =~ s/.*\///;
+		if(!-e "$repository/$branch/$commit"){
+			dircopy("$repository/$branch_name/$commit", "$repository/$branch/$commit");
+		}
+	}
+}
+
+sub fast_forward{
+	my $branch_name = $_[0];
+	my $count = $_[1];
+	my @files = glob("$repository/$branch_name/commit$count/*");
+	foreach my $file(@files){
+		open($rf, '<', "$file") or die "could not open \'$file\'\n";
+		@array_of_lines = <$rf>;
+		close $rf;
+		$file =~ s/.*\///;
+		mkdir "$repository/$branch/commit$count";
+		open($rf, '>', "$repository/$branch/commit$count/$file") or die "could not open \'$repository/$branch/commit$count/$file\'\n";
+		foreach my $line(@array_of_lines){
+			print $rf "$line";
+		}
+		close $rf;
+	}
+	update_working_directory($branch_name);
 }
 
 sub check_if_merge_is_possible{
@@ -747,13 +896,36 @@ sub check_if_merge_is_possible{
 	my $count2 = $_[2];
 	my $count = $_[3];
 	my $branch_name = $_[4];
-	my $previous_commit = $_[5];
-	my $previous_commit2 = $_[6];
+	my $previous_commit2 = $_[5];
+	my $previous_commit = $_[6];
 	my %hash;
 	my $check_flag = 0;
 	my @failed_merge_files;
+	if($count == $count2){
+		return 1;
+	}
+	if(! defined $count){
+		$count = 0;
+	}
+	if(! defined $count2){
+		$count2 = 0;
+	}
+	if(! defined $previous_commit){
+		$previous_commit = 0;
+	}
+	if(! defined $previous_commit2){
+		$previous_commit2 = 0;
+	}
 	foreach my $file(@current_branch_last_commit){
 		$file =~ s/.*\///;
+		if((compare("$repository/$branch/commit$count2/$file", "$repository/$branch_name/commit$count/$file") == 0)){
+			next;
+		}
+		if((compare("$repository/$branch/commit$count2/$file", "$repository/$branch_name/commit$count/$file") == 1) and 
+			((!-e "$repository/$branch/commit$previous_commit2/$file") or (!-e "$repository/$branch_name/commit$previous_commit/$file"))){
+			push @failed_merge_files, $file;
+			next;
+		}
 		if("$file" eq "message.txt"){
 			next;
 		}
@@ -768,10 +940,10 @@ sub check_if_merge_is_possible{
 			open($rf, '<', "$repository/$branch/commit$count2/$file") or die "could not open \'$repository/$branch/commit$count2/$file\'\n";
 			my @array_of_lines2 = <$rf>;
 			close $rf;
-			open($rf, '<', "$repository/$branch_name/commit$previous_commit/$file") or die "$repository/$branch_name/commit$previous_commit/$file\'\n";
+			open($rf, '<', "$repository/$branch_name/commit$previous_commit/$file") or die "could not open \'$repository/$branch_name/commit$previous_commit/$file\'\n";
 			my @previous_array_of_lines = <$rf>;
 			close $rf;
-			open($rf, '<', "$repository/$branch/commit$previous_commit2/$file") or die "$repository/$branch/commit$previous_commit2/$file\'\n";
+			open($rf, '<', "$repository/$branch/commit$previous_commit2/$file") or die "could not open \'$repository/$branch/commit$previous_commit2/$file\'\n";
 			my @previous_array_of_lines2 = <$rf>;
 			close $rf;
 			for(my $i = 0; $i < @array_of_lines; $i++){
@@ -815,7 +987,7 @@ sub check_if_merge_is_possible{
 			}
 		}
 	}
-
+	@failed_merge_files = uniq(@failed_merge_files);
 	if(@failed_merge_files > 0){
 		$check_flag = 1;
 		print "legit.pl: error: These files can not be merged:\n";
@@ -824,9 +996,11 @@ sub check_if_merge_is_possible{
 			print "$failed_merge_file\n";
 		}
 	}
-
+	exit 0;
 	return $check_flag;
 }
+
+
 
 sub perform_merge{
 	my @current_branch_last_commit = @{$_[0]};
@@ -834,8 +1008,8 @@ sub perform_merge{
 	my $branch_name = $_[2];
 	my $count = $_[3];
 	my $count2 = $_[4];
-	my $previous_commit = $_[5];
-	my $previous_commit2 = $_[6];
+	my $previous_commit2 = $_[5];
+	my $previous_commit = $_[6];
 	foreach my $file(@current_branch_last_commit){
 		my $filetmp = $file;
 		$filetmp =~ s/.*\///;
@@ -843,7 +1017,6 @@ sub perform_merge{
 			next;
 		}
 		if((compare("$index/$filetmp","$file") == 0) and (compare("$file", "$repository/$branch_name/commit$count2/$filetmp") == 0)){
-			print "hi\n";
 			next;
 		}
 		if((! -e "$index/$filetmp") and ((compare("$file", "$repository/$branch_name/commit$count2/$filetmp") == 0)) or (! -e "$repository/$branch_name/commit$count2/$filetmp")){
@@ -868,7 +1041,7 @@ sub perform_merge{
 			open($rf, '<', "$repository/$branch/commit$previous_commit2/$filetmp") or die "could not open \'$repository/$branch/commit$previous_commit2/$filetmp\'\n";
 			my @previous_array_of_lines = <$rf>;
 			close $rf;
-			open($rf, '<', "$repository/$branch_name/commit$previous_commit/$filetmp") or die "could not open \'$repository/$branch_name/commit$previous_commit/$file\'\n";
+			open($rf, '<', "$repository/$branch_name/commit$previous_commit/$filetmp") or die "could not open \'$repository/$branch_name/commit$previous_commit/$filetmp\'\n";
 			my @previous_array_of_lines2 = <$rf>;
 			close $rf;
 			open($rf, '>', "$index/$filetmp") or die "could not open \'$index/$filetmp\'\n";
@@ -896,7 +1069,6 @@ sub perform_merge{
 		my $filetmp = $file;
 		$filetmp =~ s/.*\///;
 		if((compare("$index/$filetmp","$file") == 0) and (compare("$file", "$repository/$branch/commit$count/$filetmp") == 0)){
-			print "hi\n";
 			next;
 		}
 		if((! -e "$index/$filetmp") and ((compare("$file", "$repository/$branch/commit$count/$filetmp") == 0)) or (! -e "$repository/$branch/commit$count/$filetmp")){
@@ -937,4 +1109,26 @@ sub perform_merge{
 sub no_repository{
 	print "legit.pl: error: no .legit directory containing legit repository exists\n";
 	exit 1;
+}
+
+=sub debug{
+
+			print "<============= FILES ===========>\n";
+		print "$file -> $index/$file\n";
+		print "$file -> $repository/$branch/commit$count/$file\n";
+		print "$file -> $repository/$branch_name/commit$count2/$file\n";
+		print "$file -> $repository/\.$branch_name/$file\n";
+		print "$file -> $repository/\.$branch/$file\n";
+		print "<============= FILES ===========>\n";
+		my $flag = compare("$file","$index/$file");
+		print "file with index = $flag\n";
+		$flag = compare("$file","$repository/$branch/commit$count/$file");
+		print "file with current branch last commit = $flag\n";
+		$flag = compare("$file","$repository/$branch_name/commit$count2/$file");
+		print "file with checkout branch last commit = $flag\n";
+		$flag = compare("$file","$repository/\.$branch/$file");
+		print "file with backup branch last commit = $flag\n";
+		$flag = compare("$file","$repository/\.$branch_name/$file");
+		print "file with merge backup branch last commit = $flag\n";
+		
 }
