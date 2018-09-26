@@ -1080,189 +1080,268 @@ sub checkout{
 #it will make sure that the version of the file in the directory exists within the repository if over-riding
 #else it will exit with error status and print all conflict files
 sub check_override{
-    my $check = 0;
+    #set the branch name to be the first arguement
     my $branch_name = $_[0];
+    #set the branch commit count to be the next two arguements
     my $count = $_[1];
     my $count2 = $_[2];
+    #now we want to store our current directory files into an array
     my @directory = <*>;
+    #and create a blank array for storing unsaved work
     my @unsaved_work;
+    #if the two commits are the same number, implies that the state is the same, and just return
     if($count == $count2){
         return;
     }
+    #for each file in the working directory
     foreach my $file(@directory){
+        #if the file is legit.pl or the diary or is a special file we want to ignore and go next
         if("$file" eq ".." or "$file" eq "." or "$file" eq "legit.pl" or "$file" eq "diary.txt"){
             next;
         }
+        #now we want to compare the file with the index, and the contents of the commits for both branch
+        #if this file is not found anywhere, we want to push it as unsaved work
         if((compare("$file","$index/$file") != 0) and (compare("$file","repository/$branch/commit$count/$file")!= 0) and (compare("$file","$repository/$branch_name/commit$count2/$file") != 0)
             and (compare("$file", "$repository/\.$branch/$file") != 0) and (compare("$file", "$repository/\.$branch_name/$file") != 0)){
             push @unsaved_work, $file;
         }
     }
+    #if there are any files in the unsaved work array
     if(@unsaved_work >= 1){
+        #print the error message, along with all files that match the error and exit with error status
         print "legit.pl: error: Your changes to the following files would be overwritten by checkout:\n";
         foreach my $file(@unsaved_work){
             print "$file\n";
         }
         exit 1;
     }
-
 }
-
+#===================================================================================================================
+#this subroutine will add new files created in the branch before checking out to the new branch
+#into the backup directory to maintain state
 sub add_new_files{
+    #first we want to get all files in the current directory into an array
     my @directory = <*>;
+    #for every file in the directory
     foreach my $file(@directory){
+        #we check if its a file that contains "," or its legit.pl
         if("$file" eq ".." or "$file" eq "." or "$file" eq "legit.pl"){
             next;
         }
+        #if the file does not exist in our backup directory
         if(! -e "$repository/\.$branch/$file"){
+            #we want to open the file in read mode
             open($rf, '<', "$file");
+            #store the file contents into an array
             @array_of_lines = <$rf>;
+            #close the file handle
             close $rf;
+            #now we want to create the file in our backup directory
             open($rf, '>', "$repository/\.$branch/$file");
+            #for each line in the file contents
             foreach my $line(@array_of_lines){
+                #print the line to the file handle
                 print $rf "$line";
             }
+            #close the file handle
             close $rf;          
         }
     }
 }
-
+#===================================================================================================================
+#this subroutine will update the current working directory from the backup directory in the specified branch
+#this will be used to maintain directory states when we checkout to different branches
 sub update_working_directory{
+    #we want to set our branch name to be the subroutine arguement
     my $branch_name = $_[0];
+    #we want to now store all the files in the directory into an array
     my @directory = <*>;
+    #we also want to get all the files inside our backup directory into an array using glob
     my @branch_save = glob("$repository/\.$branch_name/*");
+    #now we want to clear the current directory except for legit.pl
     foreach my $file(@directory){
+        #if file is legit.pl we dont want to remove
         if($file eq "legit.pl"){
             next;
         }else{
+            #othweise remove the file from the current working directory
             unlink "$file";
         }
     }
+    #now for each file in the branch's backup directory
     foreach my $file(@branch_save){
+        #we want to open the file in read mode
         open($rf, '<', "$file");
+        #store the file contents into an array
         @array_of_lines = <$rf>;
+        #now we want to close the file handle
         close $rf;
+        #we also want to remove all path specific characters to open it in the current directory
         $file =~ s/.*\///;
+        #now we open the file in write mode 
         open($rf, '>', "$file");
+        #for each line in the file contents
         foreach my $line(@array_of_lines){
+            #we want to print the line to the file 
             print $rf "$line";
         }
+        #close file handle
         close $rf;
     }
 }
-
+#===================================================================================================================
+#this subroutine will attempt (working mostly some minor bugs) to merge the most recent commits of 2 branches into a new
+#commit created in the current branch. it will first check if the commit is possible by comparing through a hash
+#the two commits with a common ancestor commit between the two
+#if there are conflicting changes we print our error message and say the merge could not occur
+#otherwise we will ATTEMPT to merge the files together by taking the changes and appending added/ removing removed data
+#after we create a new commit from the merge we also want to update the current directory state to reflect the merge
+#based off index
+#if the attempted merge branch has a high commit number than the current branch this is a case of fast-forward
+#where we will include the changes however we will not create a commit, we will simply just takes all the changes and add them
+#to the current branch
+#all extra commits created will also be added to the current branch if they do not exist 
 sub merge{
+    #check if the .legit repository exists
     no_repository();
+    #now we want our merge arguements to be the array passed into the subroutine
     my @arguements = @{$_[0]};
+    #if the number of arguements are not 3, and  the commit is at the end of the arguements or the commit message is empty
+    #we want to output empty commit error exit with error status;
     if(@arguements != 3 and ($arguements[0] ne "-m" or $arguements[1] ne "-m")){
         print "legit.pl: error: empty commit message\n";
         exit 1;
     }
+    #if the -m message flag is at the end, we want to print our usage error and exit with error status
     if($arguements[2] eq "-m"){
         print "usage: legit.pl merge <branch|commit> -m message\n";
+        exit 1;
     }
+    #now we want to declare our branch name we are merging with and the message we are adding to the new commit
     my $commit_message;
     my $branch_name;
+    #if the first arguement is -m that means the message is infront so second arguement and the target branch is third arguement
     if($arguements[0] eq "-m"){
         $commit_message = $arguements[1];
         $branch_name = $arguements[2];
     }
+    #if the second arguement is -m that means the message is infront so third arguement and the target branch is the first arguement
     if($arguements[1] eq "-m"){
         $branch_name = $arguements[0];
         $commit_message = $arguements[2];
     }
+    #if our commit message is not defined we want to print error message of "empty commit" and exit with error status
     if(! defined $commit_message){
         print "legit.pl: error: empty commit message\n";
         exit 1;
     }
-
+    #if the branch we are attempting to merge with does not exist, we want to print error message and exit with error status
     if(! -e "$repository/$branch_name"){
-        print "legit.pl: error: unknown branch \'$branch_name\'\n";
+        print "legit.pl: error: unknown branch '$branch_name'\n";
         exit 1;
     }
-
-    my $count;
-    my @commits = glob("$repository/$branch/commit*");
-    my @commit_numbers_current_branch;
-    foreach my $commit(@commits){
-        $commit =~ s/.*commit//;
-        push @commit_numbers_current_branch, "$commit";
-    }
-    @commit_numbers_current_branch = sort {$b cmp $a} @commit_numbers_current_branch;
-    $count = $commit_numbers_current_branch[0];
-    my $previous_commit = $commit_numbers_current_branch[1];
-    my $count2;
-    my @commits2 = glob("$repository/$branch_name/commit*");
-    my @commit_numbers_merge_branch;
-    foreach my $commit(@commits2){
-        $commit =~ s/.*commit//;
-        push @commit_numbers_merge_branch, "$commit";
-    }
-    @commit_numbers_merge_branch = sort {$b cmp $a} @commit_numbers_merge_branch;
-    $count2 = $commit_numbers_merge_branch[0];
-    my $previous_commit2 = $commit_numbers_merge_branch[1];
+    #now we want the commit number for the last and 2nd last commit in both branches
+    my $count = get_last_commit_number_in_branch($branch, 0);
+    my $previous_commit = get_last_commit_number_in_branch($branch, 1);
+    my $count2 = get_last_commit_number_in_branch($branch_name, 0);
+    my $previous_commit2 = get_last_commit_number_in_branch($branch_name,1);
+    #if the commit number in the merge branch is HIGHER than the commit number in current branch
+    #we want to perform a fast forward and not create a commit
     if((!defined $count2) or ($count2 > $count)){
         fast_forward($branch_name, $count2);
         print "Fast-forward: no commit created\n";
         exit 1;
     }
+    #if the two commits are equivalent or we are merging with current branch
+    #we want to print our message that it is up to date and exit with error status
     if(($count2 == $count) or ("$branch_name" eq "$branch")){
         print "Already up to date\n";
         exit 1;
     }
-
-    #now want to attempt to merge, by combining the last two commits of a branch into
-    #the current branch.
+    #now we want to get all the files in both the current branch's last commit and the target merge branch's last commit
+    #using the glob command
     my @current_branch_last_commit = glob("$repository/$branch/commit$count/*");
     my @merge_branch_last_commit = glob("$repository/$branch_name/commit$count2/*");
-    #check if merge is possible
-
+    #before we merge first we check if the merge is possible by checking conflicts
     my $check = check_if_merge_is_possible(\@current_branch_last_commit, \@merge_branch_last_commit,$count,$count2,$branch_name,$previous_commit, $previous_commit2);
+    #if the merge is not possible we want to exit with error status
     if($check == 1){
         exit 1;
     }
+    #otherwise we want to perform the merge
     perform_merge(\@current_branch_last_commit, \@merge_branch_last_commit, $branch_name,$count,$count2,$previous_commit, $previous_commit2);
+    #create our arguements for our new commit
     my @commit_arguements;
     $commit_arguements[0] = "-m";
     $commit_arguements[1] = "$commit_message";
+    #set the flag merge allowed to notify we update our current directory afterwards
     $merge_allowed = 1;
+    #and we call commit to create our new commit
     commit(\@commit_arguements);
+    #we also want to add all extra commits created in the branch into our current branch
     add_all_extra_commits($branch_name);
 
 }
-
+#===================================================================================================================
+#this subroutine will add all the non-existant commits from a target branch into the current branch 
+#it will check for existance and if the commit doens''t exist it will add it to the current branch
 sub add_all_extra_commits{
+    #get the target branch name from subroutine arguements
     my $branch_name = $_[0];
+    #now we want all the commit directories within that merge
     my @merge_branch_directory = glob("$repository/$branch_name/*");
-
+    #for each commit in the target branch
     foreach my $commit(@merge_branch_directory){
+        #we want to trim the extra path specific characters
         $commit =~ s/.*\///;
+        #if the commit doesn't exist within our current brnach
         if(!-e "$repository/$branch/$commit"){
+            #we want to copy the commit directory into our current branch
             dircopy("$repository/$branch_name/$commit", "$repository/$branch/$commit");
         }
     }
 }
-
+#===================================================================================================================
+#this subroutine will perform a fast forward, by adding the files from the most recent commit in the target branch
+#into the current branchs most recent commit
 sub fast_forward{
+    #first we get our banch name and recent commit for the branch name from subroutine arguements
     my $branch_name = $_[0];
     my $count = $_[1];
+    #now we want to get all the files inside the target branch's last commit
     my @files = glob("$repository/$branch_name/commit$count/*");
+    #for each file in the branch's last commit
+    #we make the commit inside our current branch
+    mkdir "$repository/$branch/commit$count";
     foreach my $file(@files){
-        open($rf, '<', "$file") or die "could not open \'$file\'\n";
+        #we want to open the file
+        open($rf, '<', "$file") or die "could not open '$file'\n";
+        #store the file contents into an array
         @array_of_lines = <$rf>;
+        #close the file handle
         close $rf;
+        #then we want to trim the extra path specific characters from the file
         $file =~ s/.*\///;
-        mkdir "$repository/$branch/commit$count";
-        open($rf, '>', "$repository/$branch/commit$count/$file") or die "could not open \'$repository/$branch/commit$count/$file\'\n";
+        #now we want to open the file in our newly made directory in the current branch
+        open($rf, '>', "$repository/$branch/commit$count/$file") or die "could not open '$repository/$branch/commit$count/$file'\n";
+        #for each line in the files content
         foreach my $line(@array_of_lines){
+            #we want to print the line to the fille
             print $rf "$line";
         }
+        #close file handler
         close $rf;
     }
+    #we also at the end of fast-forward want to update our current working directory to be that of the target merge branch
     update_working_directory($branch_name);
 }
-
+#===================================================================================================================
+#this subroutine will check if a merge is possible by comparing the two current commits with a common ancestor
+#it will use a hash that will compare the differences in the files line by line and will make sure there is still 
+#resemblance to the common ancestor i.e there is still 1 side of file that holds no change so no conflicting changes!
 sub check_if_merge_is_possible{
+    #we want to retrieve all our paramaters passed in from our subroutine arguements including
+    #the current branch's commit, the target merge branch's commit and the commit numbers and the branch names
     my @current_branch_last_commit = @{$_[0]};
     my @merge_branch_last_commit = @{$_[1]};
     my $count2 = $_[2];
@@ -1270,12 +1349,17 @@ sub check_if_merge_is_possible{
     my $branch_name = $_[4];
     my $previous_commit2 = $_[5];
     my $previous_commit = $_[6];
-    my %hash;
     my $check_flag = 0;
     my @failed_merge_files;
+    #we want to create a hash for each file see below why but it will let us check if the file maintains
+    #one side changes
+    my %hash;
+    #if the two branches have the same last commit, we want to return 1 (1 meaning failure here)
     if($count == $count2){
         return 1;
     }
+    #if any of the counts have not been defined (or created)
+    #we want to set them to initial first commit value 0
     if(! defined $count){
         $count = 0;
     }
@@ -1288,26 +1372,32 @@ sub check_if_merge_is_possible{
     if(! defined $previous_commit2){
         $previous_commit2 = 0;
     }
+    #now for each file in the current branch's last commit
     foreach my $file(@current_branch_last_commit){
-        undef %hash;
+        #we want to trim all path specific characters
         $file =~ s/.*\///;
-
+        #if the files are requivalent across both commits, we want to just go to next
         if((compare("$repository/$branch/commit$count2/$file", "$repository/$branch_name/commit$count/$file") == 0)){
             next;
         }
+        #if the file is different between both commits and the file does not exist in both ancestor's ancestor commit
+        #we want to push the file into the failed merges, and go to next
         if((compare("$repository/$branch/commit$count2/$file", "$repository/$branch_name/commit$count/$file") == 1) and 
             ((!-e "$repository/$branch/commit$previous_commit2/$file") or (!-e "$repository/$branch_name/commit$previous_commit/$file"))){
             push @failed_merge_files, $file;
             next;
         }
+        #if the file is message.txt we want to go to next file we do not handle commit messages
         if("$file" eq "message.txt"){
             next;
         }
-
+        #if the file does not exist in the other commit, we want to go next, since we just push new files in anyways
         if(! -e "$repository/$branch_name/commit$count/$file"){
             next;
         }
+        #if the file exists in the other branch (and not equivalent implied from above)
         if(-e "$repository/$branch_name/commit$count/$file"){
+            #we want to open each file in each different commit in read mode and store their values in array
             open($rf, '<', "$repository/$branch_name/commit$count/$file") or die "could not open \'$repository/$branch_name/commit$count/$file\'\n";
             @array_of_lines = <$rf>;
             close $rf;
@@ -1320,84 +1410,46 @@ sub check_if_merge_is_possible{
             open($rf, '<', "$repository/$branch/commit$previous_commit2/$file") or die "could not open \'$repository/$branch/commit$previous_commit2/$file\'\n";
             my @previous_array_of_lines2 = <$rf>;
             close $rf;
-            if(@array_of_lines > @previous_array_of_lines and @array_of_lines2 > @previous_array_of_lines){
-                for(my $i = @previous_array_of_lines; $i < @array_of_lines; $i++){
-                    if($i > @array_of_lines2){
-                        last;
-                    }
-                    if($array_of_lines[$i] eq $array_of_lines2[$i]){
-                        $hash{$array_of_lines[$i]} = 2;
-                    }
-                    if($array_of_lines[$i] ne $array_of_lines2[$i]){
-                        $hash{$array_of_lines[$i]} = 0;
-                    }
-                }
-            }
-
-            if(@array_of_lines > @previous_array_of_lines and @array_of_lines2 > @previous_array_of_lines){
-                for(my $i = @previous_array_of_lines; $i < @array_of_lines2; $i++){
-                    if($i > @array_of_lines){
-                        last;
-                    }
-                    if($array_of_lines[$i] eq $array_of_lines2[$i]){
-                        $hash{$array_of_lines[$i]} = 2;
-                    }
-                    if($array_of_lines[$i] ne $array_of_lines2[$i]){
-                        $hash{$array_of_lines[$i]} = 0;
-                    }
-                }
-            }
-
-            foreach my $line(@array_of_lines, @previous_array_of_lines, @array_of_lines2){
-                if(grep(/^$line$/, @previous_array_of_lines) and grep(/^$line$/,@array_of_lines) and grep(/^$line$/, @array_of_lines2)){
-                    $hash{$line} = 2;
-                    next;
-                }
-                if(grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
-                    $hash{$line} = 0;
-                    next;
-                }
-
-                if(grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and ( grep(/^$line$/,@array_of_lines2))){
-                    $hash{$line} = 1;
-                    next;
-                }
-                if(grep(/^$line$/, @previous_array_of_lines) and ( grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
-                    $hash{$line} = 1;
-                    next;
-                }
-                if(! grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and ( grep(/^$line$/,@array_of_lines2))){
-                    $hash{$line} = 1;
-                    next;
-                }
-                if(! grep(/^$line$/, @previous_array_of_lines) and ( grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
-                    $hash{$line} = 1;
-                    next;
-                }
-                
-            }
+            #now we want to create our hash which will check file states and create hash based on the state
+            %hash = file_hash_for_merge(\@array_of_lines, \@array_of_lines2, \@previous_array_of_lines);
         }
+        #for each key in the has, if any of the value is 0, it means that
+        #there are two different changes, (no resemblance to original ancestor in both)
+        #then we push to the failed merge files
         foreach my $key(sort keys %hash){
             if($hash{$key} == 0){
                 push @failed_merge_files, $file;
             }
         }
     }
+    #now we want to remove duplicate files from the array using the uniq command
     @failed_merge_files = uniq(@failed_merge_files);
+    #if there are any failed merges
     if(@failed_merge_files > 0){
+        #we want to set our return to be 1
         $check_flag = 1;
+        #we want to now print our error message 
         print "legit.pl: error: These files can not be merged:\n";
+        #sort the files alphabetically
         @failed_merge_files = sort {$a cmp $b} @failed_merge_files;
+        #print all files in the array of failed_merge files
         foreach my $failed_merge_file(@failed_merge_files){
             print "$failed_merge_file\n";
         }
     }
+    #return the check flag (1 = failure, 0 = success)
     return $check_flag;
 }
-
-
-
+#===================================================================================================================
+#this subroutine will perform the merge of files between two commits
+#it will add new files that are not common between
+#or it will auto-merge files that have conflicts that can be automerged
+#automerge will push the changes from the changed file, or append new lines, or remove lines from the changes
+#this works in most cases however it will not work as i could not figure out how to make diff work, and diff is the
+#optimal way to implement changes
 sub perform_merge{
+    #we want to retrieve all our paramaters passed in from our subroutine arguements including
+    #the current branch's commit, the target merge branch's commit and the commit numbers and the branch names
     my @current_branch_last_commit = @{$_[0]};
     my @merge_branch_last_commit = @{$_[1]};
     my $branch_name = $_[2];
@@ -1407,7 +1459,7 @@ sub perform_merge{
     my $previous_commit = $_[6];
     my %merged_files;
 
-    foreach my $file(@current_branch_last_commit){
+    foreach my $file(@current_branch_last_commit, @merge_branch_last_commit){
         my $filetmp = $file;
         $filetmp =~ s/.*\///;
         $merged_files{$filetmp} = 1;
@@ -1448,66 +1500,7 @@ sub perform_merge{
             push @number_of_lines, $ancestor_lines,$current_lines,$merge_lines;
             @number_of_lines = sort{$b <=> $a} @number_of_lines;
             my $max_lines = $number_of_lines[0];
-            my %hash;
-            if(@array_of_lines > @previous_array_of_lines and @array_of_lines2 > @previous_array_of_lines){
-                for(my $i = @previous_array_of_lines; $i < @array_of_lines; $i++){
-                    if($i > @array_of_lines2){
-                        last;
-                    }
-                    if($array_of_lines[$i] eq $array_of_lines2[$i]){
-                        $hash{$array_of_lines[$i]} = 2;
-                    }
-                    if($array_of_lines[$i] ne $array_of_lines2[$i]){
-                        $hash{$array_of_lines[$i]} = 0;
-                    }
-                }
-            }
-
-            if(@array_of_lines > @previous_array_of_lines and @array_of_lines2 > @previous_array_of_lines){
-                for(my $i = @previous_array_of_lines; $i < @array_of_lines2; $i++){
-                    if($i > @array_of_lines){
-                        last;
-                    }
-                    if($array_of_lines[$i] eq $array_of_lines2[$i]){
-                        $hash{$array_of_lines[$i]} = 2;
-                    }
-                    if($array_of_lines[$i] ne $array_of_lines2[$i]){
-                        $hash{$array_of_lines[$i]} = 0;
-                    }
-                }
-            }
-
-            foreach my $line(@array_of_lines, @previous_array_of_lines, @array_of_lines2){
-                if(grep(/^$line$/, @previous_array_of_lines) and grep(/^$line$/,@array_of_lines) and grep(/^$line$/, @array_of_lines2)){
-                    $hash{$line} = 2;
-                    next;
-                }
-                if(grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
-                    $hash{$line} = 0;
-                    next;
-                }
-
-                if(grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and ( grep(/^$line$/,@array_of_lines2))){
-                    $hash{$line} = 1;
-                    next;
-                }
-                if(grep(/^$line$/, @previous_array_of_lines) and ( grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
-                    $hash{$line} = 1;
-                    next;
-                }
-                if(! grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and ( grep(/^$line$/,@array_of_lines2))){
-                    $hash{$line} = 1;
-                    next;
-                }
-                if(! grep(/^$line$/, @previous_array_of_lines) and ( grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
-                    $hash{$line} = 1;
-                    next;
-                }
-                
-            }
-            #foreach my $key(sort keys %hash){
-            #   print "key = $key => value = $hash{$key}\n";
-            #}
+            my %hash = file_hash_for_merge(\@array_of_lines, \@array_of_lines2, \@previous_array_of_lines);
             for(my $i = 0; $i < $max_lines; $i++){
                 #print "$i --> $previous_array_of_lines[$i] + $array_of_lines[$i] + $array_of_lines2[$i]\n";
                 if($i > @array_of_lines and $i > @array_of_lines2){
@@ -1561,94 +1554,95 @@ sub perform_merge{
             close $rf;
         }
     }
-
-    foreach my $file(@merge_branch_last_commit){
-        my $filetmp = $file;
-        $filetmp =~ s/.*\///;
-        if($merged_files{$filetmp} == 1){
-            next;
-        }
-        if("$filetmp" eq "message.txt"){
-            next;
-        }
-        if((compare("$index/$filetmp","$file") == 0) and (compare("$file", "$repository/$branch/commit$count/$filetmp") == 0)){
-            next;
-        }
-        if((! -e "$index/$filetmp") and ((compare("$file", "$repository/$branch/commit$count/$filetmp") == 0)) or (! -e "$repository/$branch/commit$count/$filetmp")){
-            open($rf, '<', "$file");
-            @array_of_lines = <$rf>;
-            close $rf;
-            open ($rf, '>', "$index/$filetmp");
-            foreach my $line(@array_of_lines){
-                print $rf "$line";
-            }
-            close $rf;
-            next;
-        }
-        if((compare("$file", "$repository/$branch/commit$count/$filetmp") == 1)){
-            print "Auto-merging $filetmp\n";
-            open($rf, '<', "$file");
-            @array_of_lines = <$rf>;
-            close $rf;
-            open($rf, '<', "$repository/$branch/commit$count/$filetmp");
-            my @array_of_lines2 = <$rf>;
-            close $rf;
-            open($rf, '<', "$repository/$branch/commit$previous_commit2/$filetmp");
-            my @previous_array_of_lines = <$rf>;
-            close $rf;
-            open($rf, '>    ', "$index/$filetmp");
-            my @number_of_lines;
-            my $ancestor_lines = @previous_array_of_lines;
-            my $current_lines = @array_of_lines;
-            my $merge_lines = @array_of_lines2;
-            push @number_of_lines, $ancestor_lines,$current_lines,$merge_lines;
-            @number_of_lines = sort{$a <=> $b} @number_of_lines;
-            my $max_lines = $number_of_lines[0];
-            for(my $i = 0; $i < $max_lines; $i++){
-                if($i > @array_of_lines and $i > @array_of_lines2){
-                    last;
-                }
-                if($i > @previous_array_of_lines and $i > @array_of_lines2){
-                    print $rf "$array_of_lines[$i]";
-                    next;
-                }
-                if($i > @previous_array_of_lines and $i > @array_of_lines){
-                    print $rf "$array_of_lines2[$i]";
-                    next;
-                }
-                if(($i > @previous_array_of_lines) and ("$array_of_lines[$i]" eq "$array_of_lines2[$i]")){
-                    print $rf "$array_of_lines[$i]";
-                    next;
-                }
-                if(("$previous_array_of_lines[$i]" eq "$array_of_lines[$i]") and ("$array_of_lines[$i]" eq "$array_of_lines2[$i]")){
-                    print $rf "$array_of_lines[$i]";
-                    next;
-                }
-                if(("$previous_array_of_lines[$i]" eq "$array_of_lines[$i]") and ("$array_of_lines[$i]" ne "$array_of_lines2[$i]")){
-                    print $rf "$array_of_lines2[$i]";
-                    next;
-                }
-                if(("$previous_array_of_lines[$i]" eq "$array_of_lines2[$i]") and ("$array_of_lines[$i]" ne "$array_of_lines2[$i]")){
-                    print $rf "$array_of_lines[$i]";
-                    next;
-                }
-            }
-            close $rf;
-
-        }
-    }
 }
 
+sub file_hash_for_merge{
+    my %hash;
+    my @array_of_lines = @{$_[0]};
+    my @array_of_lines2 = @{$_[1]};
+    my @previous_array_of_lines = @{$_[2]};
+    if(@array_of_lines > @previous_array_of_lines and @array_of_lines2 > @previous_array_of_lines){
+        for(my $i = @previous_array_of_lines; $i < @array_of_lines; $i++){
+            if($i > @array_of_lines2){
+                last;
+            }
+            if($array_of_lines[$i] eq $array_of_lines2[$i]){
+                $hash{$array_of_lines[$i]} = 2;
+            }
+            if($array_of_lines[$i] ne $array_of_lines2[$i]){
+                $hash{$array_of_lines[$i]} = 0;
+            }
+        }
+    }
+
+    if(@array_of_lines > @previous_array_of_lines and @array_of_lines2 > @previous_array_of_lines){
+        for(my $i = @previous_array_of_lines; $i < @array_of_lines2; $i++){
+            if($i > @array_of_lines){
+                last;
+            }
+            if($array_of_lines[$i] eq $array_of_lines2[$i]){
+                $hash{$array_of_lines[$i]} = 2;
+            }
+            if($array_of_lines[$i] ne $array_of_lines2[$i]){
+                $hash{$array_of_lines[$i]} = 0;
+            }
+        }
+    }
+
+    foreach my $line(@array_of_lines, @previous_array_of_lines, @array_of_lines2){
+        if(grep(/^$line$/, @previous_array_of_lines) and grep(/^$line$/,@array_of_lines) and grep(/^$line$/, @array_of_lines2)){
+            $hash{$line} = 2;
+            next;
+        }
+        if(grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
+            $hash{$line} = 0;
+            next;
+        }
+
+        if(grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and ( grep(/^$line$/,@array_of_lines2))){
+            $hash{$line} = 1;
+            next;
+        }
+        if(grep(/^$line$/, @previous_array_of_lines) and ( grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
+            $hash{$line} = 1;
+            next;
+        }
+        if(! grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and ( grep(/^$line$/,@array_of_lines2))){
+            $hash{$line} = 1;
+            next;
+        }
+        if(! grep(/^$line$/, @previous_array_of_lines) and ( grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
+            $hash{$line} = 1;
+            next;
+        }
+        
+    }
+    return %hash;
+}
+#===================================================================================================================
+#this subroutine will get the latest commit number inside the current branch
+#this will be done by adding the number of the commit into an array
+#sorting the array, and taking the largest value
+#if there is no commit we will get undefined
 sub get_last_commit_number_in_branch{
+    #we want the target branch in which we want the commit number from and the 
+    #position aka (position'dth highest) number in the array from the subroutine arguements
     my $target_branch = $_[0];
     my $position = $_[1];
+    #now we want to get all the commit directories using glob command
     my @commits = glob("$repository/$target_branch/commit*");
+    #and we want to create a new array of commit numbers to add to
     my @commit_numbers_current_branch;
+    #for each commit in the current branch
     foreach my $commit(@commits){
+        #we want to remove the path specific characters and the commit
         $commit =~ s/.*commit//;
+        #push the commit number into the array of commit_numbers
         push @commit_numbers_current_branch, "$commit";
     }
+    #sort the array of commit numebrs
     @commit_numbers_current_branch = sort {$b cmp $a} @commit_numbers_current_branch;
+    #now we return the infex specified from input of the sorted array
     return $commit_numbers_current_branch[$position];
 }
 #this subroutine will be used as an error check to see if the .legit directory exists before calling
