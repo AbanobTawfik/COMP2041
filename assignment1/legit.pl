@@ -948,6 +948,34 @@ sub check_if_merge_is_possible{
 			open($rf, '<', "$repository/$branch/commit$previous_commit2/$file") or die "could not open \'$repository/$branch/commit$previous_commit2/$file\'\n";
 			my @previous_array_of_lines2 = <$rf>;
 			close $rf;
+			if(@array_of_lines > @previous_array_of_lines and @array_of_lines2 > @previous_array_of_lines){
+				for(my $i = @previous_array_of_lines; $i < @array_of_lines; $i++){
+					if($i > @array_of_lines2){
+						last;
+					}
+					if($array_of_lines[$i] eq $array_of_lines2[$i]){
+						$hash{$array_of_lines[$i]} = 2;
+					}
+					if($array_of_lines[$i] ne $array_of_lines2[$i]){
+						$hash{$array_of_lines[$i]} = 0;
+					}
+				}
+			}
+
+			if(@array_of_lines > @previous_array_of_lines and @array_of_lines2 > @previous_array_of_lines){
+				for(my $i = @previous_array_of_lines; $i < @array_of_lines2; $i++){
+					if($i > @array_of_lines){
+						last;
+					}
+					if($array_of_lines[$i] eq $array_of_lines2[$i]){
+						$hash{$array_of_lines[$i]} = 2;
+					}
+					if($array_of_lines[$i] ne $array_of_lines2[$i]){
+						$hash{$array_of_lines[$i]} = 0;
+					}
+				}
+			}
+
 			foreach my $line(@array_of_lines, @previous_array_of_lines, @array_of_lines2){
 				if(grep(/^$line$/, @previous_array_of_lines) and grep(/^$line$/,@array_of_lines) and grep(/^$line$/, @array_of_lines2)){
 					$hash{$line} = 2;
@@ -1005,9 +1033,12 @@ sub perform_merge{
 	my $count2 = $_[4];
 	my $previous_commit2 = $_[5];
 	my $previous_commit = $_[6];
+	my %merged_files;
+
 	foreach my $file(@current_branch_last_commit){
 		my $filetmp = $file;
 		$filetmp =~ s/.*\///;
+		$merged_files{$filetmp} = 1;
 		if("$filetmp" eq "message.txt"){
 			next;
 		}
@@ -1026,34 +1057,118 @@ sub perform_merge{
 			next;
 		}
 		if((compare("$file", "$repository/$branch_name/commit$count2/$filetmp") == 1)){
+
 			print "Auto-merging $filetmp\n";
-			open($rf, '<', "$file") or die "could not open \'$file\'\n";
+			open($rf, '<', "$file");
 			@array_of_lines = <$rf>;
 			close $rf;
-			open($rf, '<', "$repository/$branch_name/commit$count2/$filetmp") or die "could not open \'$repository/$branch_name/commit$count2/$filetmp\'\n";
+			open($rf, '<', "$repository/$branch_name/commit$count2/$filetmp");
 			my @array_of_lines2 = <$rf>;
 			close $rf;
-			open($rf, '<', "$repository/$branch/commit$previous_commit2/$filetmp") or die "could not open \'$repository/$branch/commit$previous_commit2/$filetmp\'\n";
+			open($rf, '<', "$repository/$branch/commit$previous_commit2/$filetmp");
 			my @previous_array_of_lines = <$rf>;
 			close $rf;
-			open($rf, '<', "$repository/$branch_name/commit$previous_commit/$filetmp") or die "could not open \'$repository/$branch_name/commit$previous_commit/$filetmp\'\n";
-			my @previous_array_of_lines2 = <$rf>;
-			close $rf;
-			open($rf, '>', "$index/$filetmp") or die "could not open \'$index/$filetmp\'\n";
+			open($rf, '>', "$index/$filetmp");
+			my @number_of_lines;
+			my $ancestor_lines = @previous_array_of_lines;
+			my $current_lines = @array_of_lines;
+			my $merge_lines = @array_of_lines2;
+			push @number_of_lines, $ancestor_lines,$current_lines,$merge_lines;
+			@number_of_lines = sort{$a <=> $b} @number_of_lines;
+			my $max_lines = $number_of_lines[0];
+			my %hash;
+			if(@array_of_lines > @previous_array_of_lines and @array_of_lines2 > @previous_array_of_lines){
+				for(my $i = @previous_array_of_lines; $i < @array_of_lines; $i++){
+					if($i > @array_of_lines2){
+						last;
+					}
+					if($array_of_lines[$i] eq $array_of_lines2[$i]){
+						$hash{$array_of_lines[$i]} = 2;
+					}
+					if($array_of_lines[$i] ne $array_of_lines2[$i]){
+						$hash{$array_of_lines[$i]} = 0;
+					}
+				}
+			}
 
-			for(my $i = 0; $i < @array_of_lines; $i++){
-				if($i > @array_of_lines2){
+			if(@array_of_lines > @previous_array_of_lines and @array_of_lines2 > @previous_array_of_lines){
+				for(my $i = @previous_array_of_lines; $i < @array_of_lines2; $i++){
+					if($i > @array_of_lines){
+						last;
+					}
+					if($array_of_lines[$i] eq $array_of_lines2[$i]){
+						$hash{$array_of_lines[$i]} = 2;
+					}
+					if($array_of_lines[$i] ne $array_of_lines2[$i]){
+						$hash{$array_of_lines[$i]} = 0;
+					}
+				}
+			}
+
+			foreach my $line(@array_of_lines, @previous_array_of_lines, @array_of_lines2){
+				if(grep(/^$line$/, @previous_array_of_lines) and grep(/^$line$/,@array_of_lines) and grep(/^$line$/, @array_of_lines2)){
+					$hash{$line} = 2;
+					next;
+				}
+				if(grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
+					$hash{$line} = 0;
+					next;
+				}
+
+				if(grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and ( grep(/^$line$/,@array_of_lines2))){
+					$hash{$line} = 1;
+					next;
+				}
+				if(grep(/^$line$/, @previous_array_of_lines) and ( grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
+					$hash{$line} = 1;
+					next;
+				}
+				if(! grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and ( grep(/^$line$/,@array_of_lines2))){
+					$hash{$line} = 1;
+					next;
+				}
+				if(! grep(/^$line$/, @previous_array_of_lines) and ( grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
+					$hash{$line} = 1;
+					next;
+				}
+				
+			}
+			#foreach my $key(sort keys %hash){
+			#	print "key = $key => value = $hash{$key}\n";
+			#}
+			for(my $i = 0; $i < $max_lines + 1; $i++){
+				#print "$i --> $previous_array_of_lines[$i] + $array_of_lines[$i] + $array_of_lines2[$i]\n";
+				if($i > @array_of_lines and $i > @array_of_lines2){
+					last;
+				}
+				if($i > @previous_array_of_lines and ($hash{$array_of_lines[$i]} == 2) and ($hash{$array_of_lines2[$i]}) == 1){
+					print $rf "$array_of_lines[$i]";
+					print $rf "$array_of_lines2[$i]";
+					next;
+				}
+				if($i > @previous_array_of_lines and $i > @array_of_lines2){
 					print $rf "$array_of_lines[$i]";
 					next;
 				}
-				if("$array_of_lines[$i]" eq "$array_of_lines2[$i]"){
+				if($i > @previous_array_of_lines and $i > @array_of_lines){
+					print $rf "$array_of_lines2[$i]";
+					next;
+				}
+				if(($i > @previous_array_of_lines) and ("$array_of_lines[$i]" eq "$array_of_lines2[$i]")){
 					print $rf "$array_of_lines[$i]";
-				}else{
-					if("$array_of_lines[$i]" eq "$previous_array_of_lines[$i]"){
-						print $rf "$array_of_lines2[$i]";
-					}else{
-						print $rf "$array_of_lines[$i]";
-					}
+					next;
+				}
+				if(("$previous_array_of_lines[$i]" eq "$array_of_lines[$i]") and ("$array_of_lines[$i]" eq "$array_of_lines2[$i]")){
+					print $rf "$array_of_lines[$i]";
+					next;
+				}
+				if(("$previous_array_of_lines[$i]" eq "$array_of_lines[$i]") and ("$array_of_lines[$i]" ne "$array_of_lines2[$i]")){
+					print $rf "$array_of_lines2[$i]";
+					next;
+				}
+				if(("$previous_array_of_lines[$i]" eq "$array_of_lines2[$i]") and ("$array_of_lines[$i]" ne "$array_of_lines2[$i]")){
+					print $rf "$array_of_lines[$i]";
+					next;
 				}
 			}
 			close $rf;
@@ -1063,6 +1178,12 @@ sub perform_merge{
 	foreach my $file(@merge_branch_last_commit){
 		my $filetmp = $file;
 		$filetmp =~ s/.*\///;
+		if($merged_files{$filetmp} == 1){
+			next;
+		}
+		if("$filetmp" eq "message.txt"){
+			next;
+		}
 		if((compare("$index/$filetmp","$file") == 0) and (compare("$file", "$repository/$branch/commit$count/$filetmp") == 0)){
 			next;
 		}
@@ -1078,24 +1199,55 @@ sub perform_merge{
 			next;
 		}
 		if((compare("$file", "$repository/$branch/commit$count/$filetmp") == 1)){
+			print "Auto-merging $filetmp\n";
 			open($rf, '<', "$file");
 			@array_of_lines = <$rf>;
 			close $rf;
-			open($rf, '<', "$repository/$branch_name/commit$count2/$filetmp");
+			open($rf, '<', "$repository/$branch/commit$count/$filetmp");
 			my @array_of_lines2 = <$rf>;
 			close $rf;
 			open($rf, '<', "$repository/$branch/commit$previous_commit2/$filetmp");
 			my @previous_array_of_lines = <$rf>;
 			close $rf;
-			open($rf, '<', "$repository/$branch_name/commit$previous_commit/$filetmp");
-			my @previous_array_of_lines2 = <$rf>;
-			close $rf;
-			open($rf, '>>', "$index/$filetmp");
-
-			for(my $i = @array_of_lines2; $i < @array_of_lines; $i++){
-				print $rf "$array_of_lines[$i]";
+			open($rf, '>	', "$index/$filetmp");
+			my @number_of_lines;
+			my $ancestor_lines = @previous_array_of_lines;
+			my $current_lines = @array_of_lines;
+			my $merge_lines = @array_of_lines2;
+			push @number_of_lines, $ancestor_lines,$current_lines,$merge_lines;
+			@number_of_lines = sort{$a <=> $b} @number_of_lines;
+			my $max_lines = $number_of_lines[0];
+			for(my $i = 0; $i < $max_lines; $i++){
+				if($i > @array_of_lines and $i > @array_of_lines2){
+					last;
+				}
+				if($i > @previous_array_of_lines and $i > @array_of_lines2){
+					print $rf "$array_of_lines[$i]";
+					next;
+				}
+				if($i > @previous_array_of_lines and $i > @array_of_lines){
+					print $rf "$array_of_lines2[$i]";
+					next;
+				}
+				if(($i > @previous_array_of_lines) and ("$array_of_lines[$i]" eq "$array_of_lines2[$i]")){
+					print $rf "$array_of_lines[$i]";
+					next;
+				}
+				if(("$previous_array_of_lines[$i]" eq "$array_of_lines[$i]") and ("$array_of_lines[$i]" eq "$array_of_lines2[$i]")){
+					print $rf "$array_of_lines[$i]";
+					next;
+				}
+				if(("$previous_array_of_lines[$i]" eq "$array_of_lines[$i]") and ("$array_of_lines[$i]" ne "$array_of_lines2[$i]")){
+					print $rf "$array_of_lines2[$i]";
+					next;
+				}
+				if(("$previous_array_of_lines[$i]" eq "$array_of_lines2[$i]") and ("$array_of_lines[$i]" ne "$array_of_lines2[$i]")){
+					print $rf "$array_of_lines[$i]";
+					next;
+				}
 			}
 			close $rf;
+
 		}
 	}
 }
@@ -1125,5 +1277,26 @@ sub no_repository{
 		print "file with backup branch last commit = $flag\n";
 		$flag = compare("$file","$repository/\.$branch_name/$file");
 		print "file with merge backup branch last commit = $flag\n";
-		
+
+		for(my $i = 0; $i < @array_of_lines; $i++){
+				if($i > @array_of_lines2){
+					print $rf "$array_of_lines[$i]";
+					next;
+				}
+				if("$array_of_lines[$i]" eq "$array_of_lines2[$i]"){
+					print $rf "$array_of_lines[$i]";
+				}else{
+					if("$array_of_lines[$i]" eq "$previous_array_of_lines[$i]"){
+						print $rf "$array_of_lines2[$i]";
+					}else{
+						print $rf "$array_of_lines[$i]";
+					}
+				}
+			}
+		for(my $i = @array_of_lines2; $i < @array_of_lines; $i++){
+			print $rf "$array_of_lines[$i]";
+		}
+	system("echo $mer[0]");
+	system("echo $repository/$branch_name/commit$count2");
+	exit 0;
 }
