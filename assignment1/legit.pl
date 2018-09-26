@@ -1457,32 +1457,46 @@ sub perform_merge{
     my $count2 = $_[4];
     my $previous_commit2 = $_[5];
     my $previous_commit = $_[6];
-    my %merged_files;
-
+    #foreach file in both commits
     foreach my $file(@current_branch_last_commit, @merge_branch_last_commit){
+        #we want a temporary variable to hold the file name without path specific characters
         my $filetmp = $file;
+        #remove the path specific characters from the temporary variable
         $filetmp =~ s/.*\///;
-        $merged_files{$filetmp} = 1;
+        #if the file is message.txt we want to go next, do not merge commit messages
         if("$filetmp" eq "message.txt"){
             next;
         }
+        #if the file is the same as the index, aswell as already in the branch, we want to go to next
         if((compare("$index/$filetmp","$file") == 0) and (compare("$file", "$repository/$branch_name/commit$count2/$filetmp") == 0)){
             next;
         }
+        #if the file does not exist in the index, and the file is either the same or not existant in the current branch
+        #we want to create a copy of that file int he current commit
         if((! -e "$index/$filetmp") and ((compare("$file", "$repository/$branch_name/commit$count2/$filetmp") == 0)) or (! -e "$repository/$branch_name/commit$count2/$filetmp")){
+            #we want to open the file in read mode
             open($rf, '<', "$file");
+            #store the file contents into an array
             @array_of_lines = <$rf>;
+            #close the file handle
             close $rf;
+            #now we want to open our new file in index (staging for commit) in write mode
             open ($rf, '>', "$index/$filetmp");
+            #for each line in the file contents
             foreach my $line(@array_of_lines){
+                #we want to print the line to the file
                 print $rf "$line";
             }
+            #close the file handle and go tot he next file
             close $rf;
             next;
         }
+        #if there are merge conflicts within the two file
         if((compare("$file", "$repository/$branch_name/commit$count2/$filetmp") == 1)){
-
+            #since it passed the check it can automerge
             print "Auto-merging $filetmp\n";
+            #now we want to open both versions of the file from the commit
+            #and a version of the file from the ancestor, and store them all into an array
             open($rf, '<', "$file");
             @array_of_lines = <$rf>;
             close $rf;
@@ -1493,6 +1507,8 @@ sub perform_merge{
             my @previous_array_of_lines = <$rf>;
             close $rf;
             open($rf, '>', "$index/$filetmp");
+            #to the maximum number of lines in all the files we want to store all
+            #the number of lines into an array, and sort to get the max
             my @number_of_lines;
             my $ancestor_lines = @previous_array_of_lines;
             my $current_lines = @array_of_lines;
@@ -1500,123 +1516,143 @@ sub perform_merge{
             push @number_of_lines, $ancestor_lines,$current_lines,$merge_lines;
             @number_of_lines = sort{$b <=> $a} @number_of_lines;
             my $max_lines = $number_of_lines[0];
+            #now we want to get the hash from comparing all these files to help indicate what kind of change has been made
             my %hash = file_hash_for_merge(\@array_of_lines, \@array_of_lines2, \@previous_array_of_lines);
+            #we want to iterate accross all files from 0 --> max lines (not some files are smaller than max lines)
             for(my $i = 0; $i < $max_lines; $i++){
-                #print "$i --> $previous_array_of_lines[$i] + $array_of_lines[$i] + $array_of_lines2[$i]\n";
+                #if both the current files are at the end, we want to exit the loop
                 if($i > @array_of_lines and $i > @array_of_lines2){
                     last;
                 }
-
+                #if the ancestor file has finished, and both files have different hash values, (2,1 indicates a common line + insertion)
+                #so we want to print the common line, then the new line
                 if((!defined $previous_array_of_lines[$i]) and ($hash{$array_of_lines[$i]} == 2) and ($hash{$array_of_lines2[$i]}) == 1){
                     print $rf "$array_of_lines[$i]";
                     print $rf "$array_of_lines2[$i]";
                     next;
                 }
+                #similair to above if both files have different hash values {1,2} it will be the same situation however, in reverse order
                 if((!defined $previous_array_of_lines[$i]) and ($hash{$array_of_lines[$i]} == 1) and ($hash{$array_of_lines2[$i]}) == 2){
                     print $rf "$array_of_lines2[$i]";
                     print $rf "$array_of_lines[$i]";
                     next;
                 }
+                #if the ancestor file has finished and so has the second file, we just want to append from the first file
                 if((!defined $previous_array_of_lines[$i]) and $i > @array_of_lines2){
                     print $rf "$array_of_lines[$i]";
                     next;
                 }
+                #if the ancestor file has finished and so has the second file, we just want to append from the second file
                 if((!defined $previous_array_of_lines[$i]) and $i > @array_of_lines){
                     print $rf "$array_of_lines2[$i]";
                     next;
                 }
+                #if the ancestor file has finished, and both lines are equal we want to simply append either line
                 if((!defined $previous_array_of_lines[$i]) and ("$array_of_lines[$i]" eq "$array_of_lines2[$i]")){
                     print $rf "$array_of_lines[$i]";
                     next;
                 }
+                #if the second file has finished and the first file has not, we just want to append changes from the first file
                 if(!defined $array_of_lines2[$i] and defined $array_of_lines[$i]){
                     print $rf "$array_of_lines[$i]";
                 }
+                #similair to above
+                #if the first file has finished and the second file has not, we just want to append changes from the second file
                 if(defined $array_of_lines2[$i] and !defined $array_of_lines[$i]){
                     print $rf "$array_of_lines2[$i]";
                 }
+                #if in all files we have finished, we want to exit from the loop
                 if(!defined $array_of_lines[$i] or !defined $array_of_lines2[$i] or !defined $previous_array_of_lines[$i]){
                     last;
                 }
+                #now if the line is similair to ancestor for file 1 and the same for file 2 we just want to print either line
                 if(("$previous_array_of_lines[$i]" eq "$array_of_lines[$i]") and ("$array_of_lines[$i]" eq "$array_of_lines2[$i]")){
                     print $rf "$array_of_lines[$i]";
                     next;
                 }
+                #if the line is similair to the ancestor in the first file, and different in file 2
+                #we want to print the different line in file 2
                 if(("$previous_array_of_lines[$i]" eq "$array_of_lines[$i]") and ("$array_of_lines[$i]" ne "$array_of_lines2[$i]")){
                     print $rf "$array_of_lines2[$i]";
                     next;
                 }
+                #if the line is similair to the ancestor in the second file, and different in file 1
+                #we want to print the different line in file 1
                 if(("$previous_array_of_lines[$i]" eq "$array_of_lines2[$i]") and ("$array_of_lines[$i]" ne "$array_of_lines2[$i]")){
                     print $rf "$array_of_lines[$i]";
                     next;
                 }
             }
+            #close the file handle
             close $rf;
         }
     }
 }
-
+#===================================================================================================================
+#this subroutine will return a hash displaying the merge confliction states from two different files, compared to a common
+#ancestor.
 sub file_hash_for_merge{
+    #we want to create our return hash
     my %hash;
+    #retrieve all three files from the program arguements 1,2 and 3
     my @array_of_lines = @{$_[0]};
     my @array_of_lines2 = @{$_[1]};
     my @previous_array_of_lines = @{$_[2]};
+    #if file 1 is bigger than the ancestor and file 2 is also bigger than the ancestor
+    #this is the case where we add extra lines to the ancestor in both files, and we must make sure
+    #we add the same values otherwise we cannot resolve these merge conflicts as there is no ancestors to base off
     if(@array_of_lines > @previous_array_of_lines and @array_of_lines2 > @previous_array_of_lines){
+        #we want to scan through from the end of the ancestor to the end of the first file
         for(my $i = @previous_array_of_lines; $i < @array_of_lines; $i++){
+            #if the index is larger than the second file, we want to break from the loop
             if($i > @array_of_lines2){
                 last;
             }
+            #if the lines are equal, store 2 in that hash line
             if($array_of_lines[$i] eq $array_of_lines2[$i]){
                 $hash{$array_of_lines[$i]} = 2;
             }
+            #if the lines are not equal, we want to store 0
             if($array_of_lines[$i] ne $array_of_lines2[$i]){
                 $hash{$array_of_lines[$i]} = 0;
             }
         }
     }
-
-    if(@array_of_lines > @previous_array_of_lines and @array_of_lines2 > @previous_array_of_lines){
-        for(my $i = @previous_array_of_lines; $i < @array_of_lines2; $i++){
-            if($i > @array_of_lines){
-                last;
-            }
-            if($array_of_lines[$i] eq $array_of_lines2[$i]){
-                $hash{$array_of_lines[$i]} = 2;
-            }
-            if($array_of_lines[$i] ne $array_of_lines2[$i]){
-                $hash{$array_of_lines[$i]} = 0;
-            }
-        }
-    }
-
+    #otherwise we want to go through each file line by line
     foreach my $line(@array_of_lines, @previous_array_of_lines, @array_of_lines2){
+        #if the line exists in all three arrays, we want to store the value 2 into the hash
         if(grep(/^$line$/, @previous_array_of_lines) and grep(/^$line$/,@array_of_lines) and grep(/^$line$/, @array_of_lines2)){
             $hash{$line} = 2;
             next;
         }
+        #if the line exists in the ancestor and neither of files (means 2 changes), so store 0 as merge conflict
         if(grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
             $hash{$line} = 0;
             next;
         }
-
+        #if the line exists in the ancestor and only in file 1 we want to store 1
         if(grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and ( grep(/^$line$/,@array_of_lines2))){
             $hash{$line} = 1;
             next;
         }
+        #if the line exists in the ancestor and only in file 2 we want to also store 1
         if(grep(/^$line$/, @previous_array_of_lines) and ( grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
             $hash{$line} = 1;
             next;
         }
+        #if the line doesn't exist in the ancestor or file 1 and exists in file 2, this implies line added so store 1 
         if(! grep(/^$line$/, @previous_array_of_lines) and (! grep(/^$line$/,@array_of_lines)) and ( grep(/^$line$/,@array_of_lines2))){
             $hash{$line} = 1;
             next;
         }
+        #if the line doesnt exist in the ancestor or file 2 and exists in file 1, this implies line added so store 1
         if(! grep(/^$line$/, @previous_array_of_lines) and ( grep(/^$line$/,@array_of_lines)) and (! grep(/^$line$/,@array_of_lines2))){
             $hash{$line} = 1;
             next;
         }
         
     }
+    #we want to return the hash with all values stored inside from this subroutine
     return %hash;
 }
 #===================================================================================================================
