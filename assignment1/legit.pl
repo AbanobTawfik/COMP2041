@@ -864,97 +864,129 @@ sub status_message{
         print "$file - untracked\n";
     }
 }
-
+#===================================================================================================================
+#this subroutine will either create/delete a branch, or print all branches dependant on the input parsed in
+#if no arguements are passed in, it will simply print all branches in the .legit repository
+#if a branch name is specified that is non numeric only, it will create a branch by taking the current directory 
+#state of the current branch and making a copy in the new branch
+#if the -d flag is supplied that indicates to delete a branch assuming there is no unmerged work
 sub branch{
+    #first check if the .legit repository exists
     no_repository();
+    #get the arguements from the subroutine 
     my @arguements = @{$_[0]};
+    #these values below will vary depending on input
     my $delete_flag = 0;
     my $branch_name;
+    #if mor ethan 2 arguements remain after branch is removed
+    #print the usage message and exit with error status
     if(@arguements > 2){
-        print "legit.pl: error: usage \.\/legit\.pl -d \[branch name\]\n";
+        print "legit.pl: error: usage ./legit.pl -d [branch name]\n";
+        exit 1;
     }
     if(@arguements == 1 and $arguements[0] eq "-d"){
-        print "legit.pl: error: usage \.\/legit\.pl -d \[branch name\]\n";
+        print "legit.pl: error: usage ./legit.pl -d [branch name]\n";
+        exit 1;
     }
+    #if the arguements is equal to 2 and the delete flag is the first arguement
     if(@arguements == 2 and $arguements[0] eq "-d"){
+        #set the delete flag as on
         $delete_flag = 1;
+        #set the branch name to delete as arguement 1
         $branch_name = $arguements[1];
     }
+    #if there is only 1 arguement
     if(@arguements == 1){
+        #set the branch name as that arguement (create branch)
         $branch_name = $arguements[0];
     }
+    #if the delete flag is not on AND there are no commits in the current state
+    #print the error message and exit with error status
     if(($delete_flag == 0) and (find_last_commit_number() == 0)){
         print "legit.pl: error: your repository does not have any commits yet\n";
         exit 1;
     }
+    #if the arguements is equal to 1 (create branch) and there already is a branch with that name
+    #print error message and exit
     if((@arguements == 1) and (-e "$repository/$branch_name")){
-        print "legit.pl: error: branch \'$branch_name\' already exists\n";
+        print "legit.pl: error: branch '$branch_name' already exists\n";
         exit 1;
     }
+    #if no arguements are supplied that means print all branches in the current repostiory
     if(@arguements == 0){
+        #get all files in repository using glob
         my @branches = glob("$repository/*");
+        #for each file in the repository
         foreach my $branch(@branches){
+            #we want to trim the path file characters, keeping just branch name
             $branch =~ s/.*\///;
+            #if the file is index or current_branch.txt we want to skip (config files)
             if($branch eq "current_branch.txt" or $branch eq "index"){
                 next;
             }else{
+                #otherwise print the branch name
                 print "$branch\n";
             }
         }
+        #return from subroutine
         return;
     }
-
+    #if the delete flag is supplied
     if($delete_flag == 1){
+        #if there is no branch with that name
+        #print error message and exit with error status
         if(!-e "$repository/$branch_name"){
             print "legit.pl: error: branch \'$branch_name\' does not exist\n";
             exit 1;
         }
-        my $count;
-        my @commits = glob("$repository/$branch/commit*");
-        my @commit_numbers_current_branch;
-        foreach my $commit(@commits){
-            $commit =~ s/.*commit//;
-            push @commit_numbers_current_branch, "$commit";
-        }
-        @commit_numbers_current_branch = sort {$b cmp $a} @commit_numbers_current_branch;
-        $count = $commit_numbers_current_branch[0];
-        my $previous_commit = $commit_numbers_current_branch[1];
-        my $count2;
-        my @commits2 = glob("$repository/$branch_name/commit*");
-        my @commit_numbers_merge_branch;
-        foreach my $commit(@commits2){
-            $commit =~ s/.*commit//;
-            push @commit_numbers_merge_branch, "$commit";
-        }
-        @commit_numbers_merge_branch = sort {$b cmp $a} @commit_numbers_merge_branch;
-        $count2 = $commit_numbers_merge_branch[0];
-        my $previous_commit2 = $commit_numbers_merge_branch[1];
+        #now we want the last commit in the current branch and the predecessor commit to that commit
+        my $count = get_last_commit_number_in_branch($branch, 0);
+        my $previous_commit = get_last_commit_number_in_branch($branch, 1);
+        #we also want the last commit in the branch we are deleting, and its predecessor commit
+        my $count2 = get_last_commit_number_in_branch($branch_name, 0);
+        my $previous_commit2 = get_last_commit_number_in_branch($branch_name, 1);
+        #now we now want to get both last commit directories in order to check if a merge CAN occur, to prevent
+        #deleting a branch with unmerged changes
         my @current_branch_last_commit = glob("$repository/$branch/commit$count/*");
         my @merge_branch_last_commit = glob("$repository/$branch_name/commit$count2/*");
-        
+        #now we want to set the reutn of the check_if_merge_is_possible and store the return into variable check
         my $check = check_if_merge_is_possible(\@current_branch_last_commit, \@merge_branch_last_commit,$count,$count2,$branch_name,$previous_commit, $previous_commit2);
+        #if check == 1 (merge can occur) we want to print an error message and exit with error status
+        #to avoid deleting unmerged work
         if($check != 1){
             print "legit.pl: error: branch \'$branch_name\' has unmerged changes\n";
             exit 1;
         }
+        #if the branch attempting to be deleted is the current branch
+        #we want to print the error message and exit with error status
         if("$branch_name" eq "$branch"){
             print "legit.pl: error: can not delete branch \'$branch_name\'\n";
             exit 1;
         }
+        #if the branch attempting to be deleted does not exist
+        #we want to print the error message and exit with error status
         if(!-e "$repository/$branch_name"){
             print "legit.pl: error: branch \'$branch_name\' does not exist\n";
             exit 1;
         }else{
+            #otherwise we want to remove the entire directory
+            #and the backup directory associated with the branch, print the message and return
             rmtree(["$repository/$branch_name"]);
             rmtree(["$repository/\.$branch_name"]);
             print "Deleted branch \'$branch_name\'\n";
             return;
         }
     }else{
+        #otherwise we are creating a branch
+        #if the branch name supplied is not defined (dont think possible since just branch)
+        #or if the branch is simply just numeric
+        #print the error message and exit with error status
         if((!defined "$branch_name") or ("$branch_name" =~ /^[\d]+$/)){
             print "legit.pl: error: invalid branch name '$branch_name'";
             exit 1;
         }
+        #otherwise we want to copy the current branch's state into the new branch's directory state
+        #and we want to save into the backup branch directory the current state (important for checkout)
         dircopy("$repository/$branch", "$repository/$branch_name");
         mkdir "$repository/$branch_name";
         mkdir "$repository/\.$branch_name";
@@ -962,76 +994,91 @@ sub branch{
         return;
     }
 }
-
+#===================================================================================================================
+#this subroutine will save a given branch's current directory state into a hidden directory, in order to allow loading
+#different directory states when checkout is called
 sub save{
+    #we want to get our banch name for the state we are saving from subroutine arguement 1
     my $branch_name = $_[0];
+    #we want to now store current directory state into the backup file
     my @directory = <*>;
+    #for each file in the directory
     foreach my $file(@directory){
-        if("$file" eq "legit\.pl"){
+        #if the file name is legit.pl we want to skip
+        if("$file" eq "legit.pl"){
             next;
         }
+        #otherwise
+        #open the file in read mode
         open($rf, '<', "$file");
+        #store the file content into an array
         @array_of_lines = <$rf>;
+        #close the file handle
         close $rf;
+        #now we want to open our file in our hidden directory in write mode
         open($rf, '>', "$repository/\.$branch_name/$file");
+        #for each line in the file contents, we want to print the contents to the file handler 
         foreach my $line(@array_of_lines){
             print $rf "$line";
         }
+        #close the file handle
         close $rf;
     }
 }
-
+#===================================================================================================================
+#this subroutine will switch from the current branch to specified branch
+#this will also update the current working directory to represent the state of the merge.
+#if a checkout is made with no commit, the directory will maintain the original state
+#only until there is a commit made in the branch will the states be different.
 sub checkout{
+    #check if the .legit repository exists
     no_repository();
+    #get the arguements from the subroutine
     my @arguements = @{$_[0]};
+    #if the arguements is not equal to 1 that means incorrect usage
+    #print incorrect usage message and exit with error status
     if(@arguements != 1){
         print "legit.pl: usage: ./legit.pl checkout [branch_name]\n";
         exit 1;
     }
+    #get the branch name as the arguement passed in
     my $branch_name = $arguements[0];
-
+    #if the branch does not exist we want to print error message and exit with error status
     if(! -e "$repository/$branch_name"){
-        print "legit.pl: error: unknown branch \'$branch_name\'\n";
+        print "legit.pl: error: unknown branch '$branch_name'\n";
         exit 1;
     }
+    #if the branch requested is the current branch already we want to print the error message and exit with error status
     if("$branch" eq "$branch_name"){
-        print "legit.pl: error: already on branch \'$branch_name\'\n";
+        print "legit.pl: error: already on branch '$branch_name'\n";
     }else{
-        #update working directory to current state in index
-        #updated_save($branch_name, $branch);
-
-        my $count;
-        my @commits = glob("$repository/$branch/commit*");
-        my @commit_numbers_current_branch;
-        foreach my $commit(@commits){
-            $commit =~ s/.*commit//;
-            push @commit_numbers_current_branch, "$commit";
-        }
-        @commit_numbers_current_branch = sort {$b cmp $a} @commit_numbers_current_branch;
-        $count = $commit_numbers_current_branch[0];
-        my $count2;
-        my @commits2 = glob("$repository/$branch_name/commit*");
-        my @commit_numbers_merge_branch;
-        foreach my $commit(@commits2){
-            $commit =~ s/.*commit//;
-            push @commit_numbers_merge_branch, "$commit";
-        }
-        @commit_numbers_merge_branch = sort {$b cmp $a} @commit_numbers_merge_branch;
-        $count2 = $commit_numbers_merge_branch[0];
+        #otherwise we want to get the last commit of the branches
+        my $count = get_last_commit_number_in_branch($branch, 0);
+        my $count2 = get_last_commit_number_in_branch($branch_name, 0);
+        #and we want to check if we have files that will be over-ridden from the checkout
         check_override($branch_name, $count, $count2);
+        #now we want to add all new files from the current branch into the backup branch folder
         add_new_files();
+        #if the two branches have different commit numbers (differing commits)
         if($count != $count2){
+            #we want to update the working directory to reflect
+            #the state of the maintained branch backup directory
             update_working_directory($branch_name);
         }
-
+        #finally we want to open the current_branch.txt file
         open($rf, '>', "$repository/current_branch.txt");
+        #print the new brnach we are checking out to the file
         print $rf "$branch_name";
+        #close the file handle
         close $rf;
-
-        print "Switched to branch \'$branch_name\'\n";
+        #print success message that we switch to the branch
+        print "Switched to branch '$branch_name'\n";
     }
 }
-
+#===================================================================================================================
+#this subroutine will check if the attempted checkout will over-ride and lose unsaved work within the directory
+#it will make sure that the version of the file in the directory exists within the repository if over-riding
+#else it will exit with error status and print all conflict files
 sub check_override{
     my $check = 0;
     my $branch_name = $_[0];
