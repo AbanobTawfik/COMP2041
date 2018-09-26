@@ -186,11 +186,11 @@ sub add{
     #for each file passed into program arguement
     #create an array of files that are being added not deleted 
     foreach my $file(@arguements){
-    	#if the file exists in the index
+        #if the file exists in the index
         if(-e "$index/$file"){
-        	#and the file does not exist in directory (been removed with rm)
+            #and the file does not exist in directory (been removed with rm)
             if(!-e "$file"){
-            	#this is an indication to remove the file from the index
+                #this is an indication to remove the file from the index
                 unlink "$index/$file";
                 #remove the file from the array of arguements, using grep not matching all that equal the file in array
                 @arguements = grep {$_ ne "$file"} @arguements;
