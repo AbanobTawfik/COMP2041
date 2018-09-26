@@ -20,7 +20,6 @@ my @array_of_lines;
 #this is a flag to check whether the commit was made with merge, and to update current working directory if so 
 #0 = no merge, 1 = merged commit
 my $merge_allowed = 0;
-
 sub main{
     #if there exists a current_branch.txt file in the .legit folder
     #(made after init is called), we want to set the current branch equal to the value in the text file
@@ -119,7 +118,6 @@ sub main{
 }
 #calling main subroutine
 main(); 
-
 #this subroutine will print the monstrous usage for legit.pl properly formatted and exit with status 1
 sub usage{
     print "legit.pl: error: unknown command $ARGV[0]\n";
@@ -797,43 +795,72 @@ sub status{
     my @directory_files = glob("*");
     #now we want to create an array of all unique files
     my @all_files;
+    #for all the files in the commit/index/directory
     foreach my $file(@index_files, @commit_files, @directory_files){
-
+        #we want to trim path specific characters and only get the file name
         $file =~ s/.*\///;;
+        #store the file into the hash
         $file_hash{$file}++;
+        #if the file has been not been seen before we want to add it to the all files array
+        #and increment the counter by 1, this is to remove duplicates
         if($file_hash{$file} <= 1){
             push @all_files, $file;
             $file_hash{$file}++;
         }
     }
+    #now we want to sort the array alphabetically
     @all_files = sort {$a cmp $b} @all_files;
+    #for each file in the array of all files
     foreach my $file(@all_files){
+        #we want to print the status message of each file
         status_message($file, $previous_commit_count);
     }
-
 }
-
+#===================================================================================================================
+#this subroutine will take in a file as an arguement, and will compare the file to the current state
+#index state and commit state to give the status of file as a return
 sub status_message{
+    #the file that is being processed is arguement 0
     my $file = $_[0];
+    #the last commit number is arguement 1
     my $previous_commit_count = $_[1];
+    #if the file is a . file or message.txt or any config files, we dont want to print the status of those files
     if("$file" eq ".." or "$file" eq "." or "$file" eq "message.txt" or "$file" eq "current_branch.txt"){
+        #return from subroutine
         return;
     }
+    #if the file is the exact same as what is inside the last commit, then it is the same as repository
     if(compare("$file","$repository/$branch/commit$previous_commit_count/$file") == 0){
         print "$file - same as repo\n";
-    }elsif(compare("$file", "$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
+    }
+    #if the file is different to the index, and the index has the same content as the last commit, then we want to say that
+    #the file is different changes staged for commit
+    elsif(compare("$file", "$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
         print "$file - file changed, different changes staged for commit\n";
-    }elsif(compare("$file", "$index/$file") == 0 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
+    }
+    #if the file is the same as index, and the index is different to the last commit, then the file is changed, and is staged for commit
+    elsif(compare("$file", "$index/$file") == 0 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 1){
         print "$file - file changed, changes staged for commit\n";
-    }elsif(compare("$file","$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0){
+    }
+    #if the file and index are different, and the index and last commit are the same that means the file is changed and the changes are
+    #not staged for commit (need to be added)
+    elsif(compare("$file","$index/$file") == 1 and compare("$index/$file","$repository/$branch/commit$previous_commit_count/$file") == 0){
         print "$file - file changed, changes not staged for commit\n";
-    }elsif(!-e "$file" and compare("$index/$file", "$repository/$branch/commit$previous_commit_count/$file") == 0){
+    }
+    #if the file doesnt exist however it is in the index and last commit with the same file content, then the file has just been removed
+    elsif(!-e "$file" and compare("$index/$file", "$repository/$branch/commit$previous_commit_count/$file") == 0){
         print "$file - file deleted\n";
-    }elsif((! -e "$file") and (! -e "$index/file") and (-e "$repository/$branch/commit$previous_commit_count/$file")){
+    }
+    #if the file doesnt exists only in the last commit however not in the directory/index then print deleted
+    elsif((! -e "$file") and (! -e "$index/file") and (-e "$repository/$branch/commit$previous_commit_count/$file")){
         print "$file - deleted\n";
-    }elsif(compare("$file", "$index/$file") == 0 and (! -e "$repository/$branch/commit$previous_commit_count/$file")){
+    }
+    #if the file is the same as the index and has not been commited, print added to index
+    elsif(compare("$file", "$index/$file") == 0 and (! -e "$repository/$branch/commit$previous_commit_count/$file")){
         print "$file - added to index\n";
-    }elsif((-e "$file") and (! -e "$index/$file")){
+    }
+    #otherwise if its not in the index, or last commit due to previous cases, and just exists, it is untracked
+    elsif((-e "$file") and (! -e "$index/$file")){
         print "$file - untracked\n";
     }
 }
