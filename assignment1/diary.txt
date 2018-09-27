@@ -1,6 +1,6 @@
 if the format is distorted please copy and paste into sublime.txt, i will also provide a series of screenshot links
 aswell incase the format is ruined on submission!
-
+https://prnt.sc/kz8qfq
 Abanob Tawfik z5075490 diary
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 |     date           |     start     |      stop     |     Activity         |        Comments                     |
@@ -30,4 +30,29 @@ Abanob Tawfik z5075490 diary
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 |     22/09/2018     |     13:00     |     14:30     |    coding            | implemented status, no errors       |
 |                    |               |               |                      | (SUBSET 1 FINISHED)                 |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     23/09/2018     |     01:00     |     03:23     |    coding            | implemented branch and part of      |
+|                    |               |               |    and debugging     | checkout. fixed issue of current    |
+|                    |               |               |                      | directory reflecitng branch state   |
+|                    |               |               |                      | have more debugging to fix checkout |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     24/09/2018     |     13:00     |     16:30     |    coding            | finished checkout and implemented   |
+|                    |               |               |    and debugging     | directory state in hidden directory |
+|                    |               |               |                      | that maintains state of branch      |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     25/09/2018     |     14:00     |     16:24     |    coding            | fixed all bugs found in checkout    |
+|                    |               |               |    and debugging     | and branch, preparing for merge     |
+|                    |               |               |                      | fixed status bug and rm bug         |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     25/09/2018     |     01:00     |     04:37     |    coding            | first run of merge implemented      |
+|                    |               |               |                      | checks if merge possible + simple   |
+|                    |               |               |                      | merge case when file same # lines   |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     26/09/2018     |     01:00     |     04:37     |    coding            | fixed merge implementation to       |
+|                    |               |               |                      | account for either add/remove line  |
+|                    |               |               |                      | cannot do mix of both (flawed)      |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     27/09/2018     |     14:21     |     19:37     |    commenting!       | finished subset 0 + 1 + 2, however  |
+|                    |               |               |                      | merge isn't perfect. adding comments|
+|                    |               |               |                      | (SUBSET 2 FINISHED)                 |
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
