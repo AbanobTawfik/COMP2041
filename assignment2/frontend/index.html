@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Instacram</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- You can add your styles and scripts here -->
+    <link rel="stylesheet" type="text/css" media="screen" href="styles/provided.css"/>
+    <link rel="stylesheet" href="styles/form.css">
+    <script type="module" src="src/helpers.js"></script>
+    <script type="module" src="src/api.js"></script>
+    <!--                         BOOTSTRAP -->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+    <!-- jQuery library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+    <!-- Latest compiled JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <!--                     END OF BOOSTRAP -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
+    <meta charset="utf-8">
+
+
+</head>
+<body>
+<!-- This is an example app structure -->
+<header class='banner'>
+    <!--using a boostrap fancy font for the webpage title-->
+    <h1 class="display-1" style="margin-left: 40%;">Instacram</h1>
+    <ul>
+        <!--using a boostrap button for the login as they look better, see js for event listener-->
+        <button class="btn btn btn-outline-primary btn-lg" id="login_button">Login</button>
+        <button class="btn btn-outline-info btn-lg" id="register_button">Register</button>
+        <button class="btn btn btn-outline-primary btn-lg" id="logout_button" style="display:none;">Logout</button>
+    </ul>
+</header>
+<div id="home_page" style="margin-left:34%;margin-top:5%;font-size:20px;"><b>Welcome to the home page of Instacram.
+    <br/>
+    Please login or signup to gain full access to the website.<br/> whilst logged out you have no access to the website.<br/>
+    thank you and we hope you enjoy your stay!!</b>
+</div>
+
+<main role='main'>
+    <!-- app goes here -->
+    <div id='large-feed' style="display:none;">
+        <div class="display-1" style="font-size:30px;margin-left: 43%;"> Your Feed</div>
+        <!--Adding the buttons required to perform functionallity to the feed page-->
+        <button style="margin-left:2%;margin-top:-70px;" type="button" class="btn btn-info" id="create_post_button">
+            upload
+        </button>
+        <button style="margin-left:68%;margin-top:-70px;" type="button" class="btn btn-success" id="follow_user_button">
+            Follow users here!
+        </button>
+        <button style="margin-left:85%;margin-top:-100px;" type="button" class="btn btn-warning"
+                id="unfollow_user_button">
+            Unfollow users here!
+        </button>
+        <button style="margin-left:10%;margin-top:-130px;" type="button" class="btn btn-secondary"
+                id="my_profile_button">
+            my profile!
+        </button>
+        <button style="margin-left:0%;margin-top:-130px;" type="button" class="btn btn-secondary"
+                id="edit_profile_button">
+            edit profile!
+        </button>
+        <button style="margin-left:5%;margin-top:-130px;" type="button" class="btn btn-secondary"
+                id="my_posts_button">
+            view and edit my posts!
+        </button>
+        <!--These placeholder divs will be used for modal displays of certain aspects of the
+            page-->
+        <div id="posts"></div>
+        <div id="like_list"></div>
+        <div id="comment_section"></div>
+        <div id="edit_profile_page"></div>
+        <div id="profile_page"></div>
+        <div id="edit_my_posts"></div>
+    </div>
+</main>
+
+<!--FORM FOR THE LOGIN-->
+<!--creating our form for the login which is initally invisible until clicked on-->
+<div class="fullscreen centered_backdrop" id="login_form">
+    <!--creating a backdrop that is opaque similair to how most signups are done nowadays-->
+    <!--still able to see page in background but focus is on the sign in-->
+    <!--the form will be placed in a white box that contains the login info-->
+    <form class="centered_backdrop_content" id="login">
+        <div>
+            <p>
+            <h1>Login</h1></p>
+            <!--creating space to vertically center elements-->
+            <label class="centre_object form_fields">Username<p><br/></p></label>
+            <input class="input_box" type="text" placeholder="enter your username!" name="username">
+            <p><br/></p>
+            <label style="margin-top:-60px;" class="centre_object form_fields">Password<p><br/></p></label>
+            <input class="input_box" type="password" placeholder="enter your password!!" name="password">
+            <p><br/></p>
+            <button type="button" style="margin-left:-20px;margin-top:-50px;" class="btn btn-primary btn-small"
+                    id="confirm_login">Sign In
+            </button>
+            <button style="margin-left:5px;margin-top:-50px;" type="button" class="btn btn-danger btn-small"
+                    id="cancel_login">Cancel
+            </button>
+            <p><br/></p>
+            <div id="incorrect_login"
+                 style="font-size:15px;margin-left: -20px;margin-top:-30px;color:transparent;"><b>Invalid
+                Username/Password</b>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!--FORM FOR THE REGISTRATION-->
+<div class="fullscreen centered_backdrop" id="register_form">
+    <!--creating a backdrop that is opaque similair to how most signups are done nowadays-->
+    <!--still able to see page in background but focus is on the sign in-->
+    <!--the form will be placed in a white box that contains the login info-->
+    <form class="centered_backdrop_content" id="register">
+        <div>
+            <h1>Register</h1>
+            <!--creating space to vertically center elements-->
+            <p><br/></p>
+            <label class="centre_object form_fields">Username<p><br/></p></label>
+            <input class="input_box" type="text" placeholder="pick your username!" name="register_username">
+            <p><br/></p>
+            <label style="margin-left:-5px;margin-top:-50px;" class="centre_object form_fields">Enter Password
+                <p><br/></p></label>
+            <input style="margin-left:-107px;" class="input_box" type="password"
+                   placeholder="enter your password!!" id="register_password1">
+            <p><br/></p>
+            <label style="margin-left:-8px;margin-top:-50px;" class="centre_object form_fields">Confirm Password
+                <p><br/></p>
+            </label>
+            <input style="margin-left:-127px;" class="input_box" type="password"
+                   placeholder="confirm your password!!"
+                   id="register_password2">
+            <p><br/></p>
+            <div style="margin-left:-10px;margin-top:-40px;color:transparent;" id="matching_register_passwords">
+                placeholder
+            </div>
+            <p style="margin-top:-25px;"><br/></p>
+            <label style="margin-left:-4px;" class="centre_object form_fields">Enter your email<p>
+                <br/></p></label>
+            <input style="margin-left:-115px;" class="input_box" type="text" placeholder="eample@example.com"
+                   name="register_email">
+            <p><br/></p>
+            <label style="margin-left:-5px;margin-top:-50px;" class="centre_object form_fields">Enter your name
+                <p><br/></p></label>
+            <input style="margin-left:-120px;" class="input_box" type="text" placeholder="eg.john smith"
+                   name="register_name">
+            <p><br/></p>
+            <button type="button" style="margin-left:-20px;margin-top:-50px;" class="btn btn-primary btn-small"
+                    id="confirm_register">sign up
+            </button>
+            <button style="margin-left:5px;margin-top:-50px;" type="button" class="btn btn-danger btn-small"
+                    id="cancel_register">cancel
+            </button>
+            <div id="incorrect_register"
+                 style="font-size:20px;margin-left: -20px;margin-top:-5px;color:transparent;">
+                <b>Username Taken</b>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- FORM FOR CREATING A POST -->
+<div id="create_post_form" class="fullscreen centered_backdrop">
+    <form action="javascript:void(0);" class="centered_backdrop_content" id="create_post">
+        <h1>Upload</h1>
+        <p><br/></p>
+        <label style="margin-left:-4px;" class="centre_object form_fields">Enter a description!<p>
+            <br/></p></label>
+        <input style="margin-left:-135px;" class="input_box" type="text"
+               placeholder="write a quick description"
+               id="create_post_description">
+        <p><br/></p>
+        <label style="margin-left:-80px;" class="centre_object form_fields">upload an image!<p>
+            <br/></p></label>
+        <input type="file" style="margin-left:180px;margin-top:-25px;" id="create_post_image" multiple>
+        <p><br/></p>
+        <button type="button" style="margin-left:-20px;margin-top:-10px;" class="btn btn-primary btn-small"
+                id="confirm_create_post">upload
+        </button>
+        <button style="margin-left:5px;margin-top:-10px;" type="button" class="btn btn-danger btn-small"
+                id="cancel_create_post">cancel
+        </button>
+        <div id="incorrect_upload_form" style="color:transparent;font-size:20px;"><b>Please supply a non empty
+            string for
+            description<br> and a valid image</b>
+        </div>
+    </form>
+</div>
+
+<!-- FORM FOR FOLLOWING USER -->
+<div id="follow_user_form" class="fullscreen centered_backdrop">
+    <form action="javascript:void(0);" class="centered_backdrop_content" id="follow_user">
+        <h1>Follow A User</h1>
+        <p><br/></p>
+        <label style="margin-left:45px;" class="centre_object form_fields">Enter a User to follow!<p>
+            <br/></p></label>
+        <input style="margin-left:-158px;" class="input_box" type="text"
+               placeholder="enter the username!"
+               id="user_to_follow">
+        <p><br/></p>
+        <button type="button" style="margin-left:-20px;margin-top:-10px;" class="btn btn-primary btn-small"
+                id="confirm_follow_user">Follow User
+        </button>
+        <button style="margin-left:5px;margin-top:-10px;" type="button" class="btn btn-danger btn-small"
+                id="cancel_follow_user">cancel
+        </button>
+        <div id="incorrect_follow_input" style="color:transparent;font-size:20px;"><b>Please supply a non empty
+            string for the user you want to follow!</b>
+        </div>
+    </form>
+</div>
+
+<!-- FORM FOR UNFOLLOWING A USER -->
+<div id="unfollow_user_form" class="fullscreen centered_backdrop">
+    <form action="javascript:void(0);" class="centered_backdrop_content" id="unfollow_user">
+        <h1>Unfollow A User</h1>
+        <p><br/></p>
+        <label style="margin-left:20px;" class="centre_object form_fields">Enter a User to unfollow!<p>
+            <br/></p></label>
+        <input style="margin-left:-175px;" class="input_box" type="text"
+               placeholder="enter the username!"
+               id="user_to_unfollow">
+        <p><br/></p>
+        <button type="button" style="margin-left:-30px;margin-top:-10px;" class="btn btn-primary btn-small"
+                id="confirm_unfollow_user">Unfollow User
+        </button>
+        <button style="margin-left:10px;margin-top:-10px;" type="button" class="btn btn-danger btn-small"
+                id="cancel_unfollow_user">cancel
+        </button>
+        <div id="incorrect_unfollow_input" style="color:transparent;font-size:20px;"><b>Please supply a non empty
+            string for the user you want to unfollow!</b>
+        </div>
+    </form>
+</div>
+
+<!-- FORM FOR ADDING A COMMENT -->
+<div id="comment_post_form" class="fullscreen centered_backdrop">
+    <form action="javascript:void(0);" class="centered_backdrop_content" id="comment_post">
+        <h1>Comment on the post</h1>
+        <p><br/></p>
+        <label style="margin-left:-46px;" class="centre_object form_fields">Enter a comment to post!<p>
+            <br/></p></label>
+        <input style="margin-left:-180px;" class="input_box" type="text"
+               placeholder="enter a nice comment!"
+               id="comment_to_post">
+        <p><br/></p>
+        <button type="button" style="margin-left:-55px;margin-top:-10px;" class="btn btn-primary btn-small"
+                id="confirm_comment">add your comment!
+        </button>
+        <button style="margin-left:0px;margin-top:-10px;" type="button" class="btn btn-danger btn-small"
+                id="cancel_comment">cancel
+        </button>
+        <div id="incorrect_comment_input" style="color:transparent;font-size:20px;"><b>Please supply a non empty
+            string for the comment you wish to post!!</b>
+        </div>
+    </form>
+</div>
+
+<!-- FORM FOR editing profile -->
+<div id="edit_profile_form" class="fullscreen centered_backdrop">
+    <form action="javascript:void(0);" class="centered_backdrop_content" id="edit_profile">
+        <h1>Edit your profile!</h1>
+        <p><br/></p>
+        <label style="margin-left:10px;" class="centre_object form_fields">Enter your new name<p>
+            <br/></p></label>
+        <input style="margin-left:-155px;" class="input_box" type="text"
+               placeholder="enter your new username!"
+               id="new_username">
+        <p><br/></p>
+        <label style="margin-left:10px;" class="centre_object form_fields">Enter a new password<p>
+            <br/></p></label>
+        <input style="margin-left:-155px;" class="input_box" type="text"
+               placeholder="enter a new password!"
+               id="new_password">
+        <p><br/></p>
+        <label style="margin-left:12px;" class="centre_object form_fields">Enter a new email<p>
+            <br/></p></label>
+        <input style="margin-left:-125px;" class="input_box" type="text"
+               placeholder="example@example.com!"
+               id="new_email">
+        <p><br/></p>
+        <button type="button" style="margin-left:-55px;margin-top:-10px;" class="btn btn-primary btn-small"
+                id="edit_profile_submit">submit information!
+        </button>
+        <button style="margin-left:0px;margin-top:-10px;" type="button" class="btn btn-danger btn-small"
+                id="cancel_edit_profile">cancel
+        </button>
+        <div id="incorrect_edit_profile_input" style="color:transparent;font-size:20px;"><b>make sure the password is
+            non empty
+            and atleast 1 field is filled in before submitting!</b>
+        </div>
+    </form>
+</div>
+
+<script type="module" src="src/main.js"></script>
+<script type="module" src="src/front_end.js"></script>
+
+</body>
+
+</html>
+

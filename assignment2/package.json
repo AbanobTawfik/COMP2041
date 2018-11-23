@@ -1,0 +1,19 @@
+{
+  "name": "18s2-comp2041-ass2",
+  "version": "1.0.0",
+  "description": "JavaScript is used increasingly to provide a native-like application experience in the web. One\r major avenue of this has been in the use of Single Page Applications or SPAs. SPAs\r are generated, rendered, and updated using JavaScript. Because SPAs don't require a user\r to navigate away from a page to do anything, they retain a degree of user and application state.",
+  "main": "index.js",
+  "dependencies": {
+    "package.json": "^2.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.cse.unsw.edu.au/z5075490/18s2-comp2041-ass2"
+  },
+  "author": "",
+  "license": "ISC"
+}

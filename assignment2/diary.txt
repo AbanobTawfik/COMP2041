@@ -1,0 +1,43 @@
+if the format is distorted please copy and paste into sublime.txt, i will also provide a series of screenshot links
+aswell incase the format is ruined on submission!
+http://prntscr.com/l8kn6p
+Abanob Tawfik z5075490 diary
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     date           |     start     |      stop     |     Activity         |        Comments                     |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     13/10/2018     |     10:00     |     11:30     |    design planning   | using 1 html file with a main       |
+|                    |               |               |                      | javascript file to modify elements  |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     14/10/2018     |     13:00     |     18:30     |    coding            | implemented login and register      |
+|                    |               |               |                      | subset 0 finished except posts      |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     15/10/2018     |     16:00     |     19:30     |    coding            | implemented login and register      |
+|                    |               |               |                      | working with backend now authent    |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     16/10/2018     |     03:00     |     05:30     |    coding            | implemented retrieving feed from    |
+|                    |               |               |                      | backend now works subset 1 finished |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     16/10/2018     |     10:00     |     13:30     |    debugging         | fixed error inside my load user     |
+|                    |               |               |                      | posts were not being loaded         |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     18/10/2018     |     02:00     |     05:30     |    coding            | added like/dislike and view         |
+|                    |               |               |    and debugging     | buttons and fixed and functional    |
+|                    |               |               |                      | (SUBSET 2 nearly FINISHED)          |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     19/10/2018     |     01:00     |     04:23     |    coding            | implemented live feed and also      |
+|                    |               |               |                      | finished like/comment view as modal |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     20/10/2018     |     12:00     |     15:23     |    debugging         | fixed bug in live feed not updating |
+|                    |               |               |                      | the number just the content, also   |
+|                    |               |               |                      | fixed bug with loading extra posts  |
+|                    |               |               |                      | and live feed interaction           |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     20/10/2018     |     19:00     |     23:30     |    coding            | implemented infinite scroll and     |
+|                    |               |               |                      | user profile page + edit profile    |
+|                    |               |               |                      | (SUBSET 2 + nearly all of 3  FIN)   | 
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+|     21/09/2018     |     13:00     |     18:34     |    commenting        | fixed bug with live feed and        |
+|                    |               |               |    and debugging     | interaction with infinite scroll    |
+|                    |               |               |                      | finished all commenting will submit |
+|                    |               |               |                      | the remaining is extremely difficult|
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

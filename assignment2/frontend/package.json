@@ -1,0 +1,38 @@
+{
+  "name": "2041-assignment",
+  "version": "1.0.0",
+  "description": "Build a Single Page Application using vanilla javascript.",
+  "main": "index.js",
+  "scripts": {
+    "start": "npx http-server",
+    "lint": "npx eslint src/**/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/teaching-vue/assignment.git"
+  },
+  "keywords": [
+    "javascript"
+  ],
+  "contributors": [
+    "Alex Hinds <alex.hinds141@gmail.com>",
+    "Zain Afzal <zainafzal08@gmail.com>"
+  ],
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/teaching-vue/assignment/issues"
+  },
+  "homepage": "https://github.com/teaching-vue/assignment#readme",
+  "devDependencies": {
+    "eslint": "^5.3.0",
+    "http-server": "^0.11.1"
+  },
+  "engines": {
+    "node": ">=9.0.0",
+    "npm": ">=6.0.0"
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "author": ""
+}
